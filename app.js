@@ -26,7 +26,7 @@ import {
 
 // ==================== USER'S FIREBASE CONFIG ====================
 const firebaseConfig = {
-  apiKey: "AIzaSyD634rB2LwW0OZMpKVKDF12y2A1nChhofo",
+  apiKey: "AIzaSyDLYKM648YCzhAy4tiYsYHkG-HRdyfycLc",
   authDomain: "studayplanner.firebaseapp.com",
   projectId: "studayplanner",
   storageBucket: "studayplanner.firebasestorage.app",
