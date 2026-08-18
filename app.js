@@ -1,6 +1,6 @@
 /**
  * ============================================================================
- * STUDYFLOW — 100% Free Student Study Planner & Pomodoro Focus Station
+ * BEASTMODE — 100% Free Student Study Planner & Pomodoro Focus Station
  * Integrated with Real Firebase Authentication & Firestore Cloud Sync
  * ============================================================================
  */
@@ -24,7 +24,7 @@ import {
   setDoc 
 } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-// ==================== USER'S FIREBASE CONFIG ====================
+// ==================== USER'S FIREBASE CONFIG (PRESERVED) ====================
 const firebaseConfig = {
   apiKey: "AIzaSyDLYKM648YCzhAy4tiYsYHkG-HRdyfycLc",
   authDomain: "studayplanner.firebaseapp.com",
@@ -738,7 +738,7 @@ function setAuthTab(mode) {
   if (mode === 'signin') {
     dom.tabSignInBtn.classList.add('active');
     dom.tabSignUpBtn.classList.remove('active');
-    dom.authModalTitle.textContent = 'Sign In to StudyFlow';
+    dom.authModalTitle.textContent = 'Sign In to BEASTMODE';
     dom.authSubmitBtnText.textContent = 'Sign In';
     dom.nameFieldGroup.classList.add('hidden');
     dom.authNameInput.removeAttribute('required');
@@ -1478,7 +1478,7 @@ function updateTimerDisplay() {
   dom.timerDigits.textContent = timeStr;
   dom.quickTimerText.textContent = timeStr;
   dom.sidebarTimerBadge.textContent = `${mins}m`;
-  document.title = `(${timeStr}) StudyFlow`;
+  document.title = `(${timeStr}) BEASTMODE — Focus & Study`;
 
   const circumference = 753.98;
   const progress = state.pomodoro.totalDuration > 0 ? (state.pomodoro.timeLeft / state.pomodoro.totalDuration) : 0;
@@ -2093,7 +2093,7 @@ function exportDataBackup() {
   const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(backupData, null, 2));
   const downloadAnchor = document.createElement('a');
   downloadAnchor.setAttribute("href", dataStr);
-  downloadAnchor.setAttribute("download", `studyflow_backup_${formatDateISO(new Date())}.json`);
+  downloadAnchor.setAttribute("download", `beastmode_backup_${formatDateISO(new Date())}.json`);
   document.body.appendChild(downloadAnchor);
   downloadAnchor.click();
   downloadAnchor.remove();
@@ -2298,6 +2298,7 @@ function escapeHTML(str) {
     .replace(/'/g, '&#039;');
 }
 
+// Global API
 window.studyFlow = {
   toggleTask: toggleTaskComplete,
   deleteTask: deleteTask,
@@ -2331,5 +2332,7 @@ window.studyFlow = {
     renderFilterChips();
   }
 };
+
+window.beastMode = window.studyFlow;
 
 document.addEventListener('DOMContentLoaded', init);
