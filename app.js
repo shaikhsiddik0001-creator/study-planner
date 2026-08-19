@@ -5,7 +5,8 @@
  * ============================================================================
  */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+
 import { 
   getAuth, 
   signInWithPopup, 
@@ -16,17 +17,19 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
+
 import { 
   getFirestore, 
   doc, 
   getDoc, 
   setDoc 
-} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
 
-// ==================== USER'S FIREBASE CONFIG (PRESERVED) ====================
+
+// ==================== FIREBASE CONFIG (FIXED) ====================
 const firebaseConfig = {
-  apiKey: "AIzaSyDLYKM648YCzhAy4tiYsYHkG-HRdyfycLc",
+  apiKey: "AIzaSyA48UsElEffGTp9pmMMlnqiwjqNdI-zTPY", // ✅ correct key
   authDomain: "studayplanner.firebaseapp.com",
   projectId: "studayplanner",
   storageBucket: "studayplanner.firebasestorage.app",
@@ -35,12 +38,12 @@ const firebaseConfig = {
   measurementId: "G-SJF9TW2RYQ"
 };
 
-// Initialize Firebase App, Auth & Firestore
+
+// ==================== INITIALIZE ====================
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 const googleProvider = new GoogleAuthProvider();
-
 // Local Storage Keys
 const STORAGE_KEYS = {
   TASKS: 'studyflow_tasks_v1',
