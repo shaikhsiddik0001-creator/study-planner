@@ -1759,6 +1759,90 @@ function renderAnalyticsView() {
 // ==========================================
 // EVENT LISTENERS SETUP
 // ==========================================
+// ================= AUTH EVENT LISTENERS =================
+
+// SIGNUP / LOGIN FORM
+if (dom.authForm) {
+  dom.authForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const email = dom.authEmailInput.value;
+    const password = dom.authPasswordInput.value;
+    const name = dom.authNameInput.value;
+
+    try {
+      if (state.authMode === "signup") {
+        // SIGNUP
+        const userCred = await createUserWithEmailAndPassword(auth, email, password);
+
+        // Set display name
+        if (name) {
+          await updateProfile(userCred.user, {
+            displayName: name
+          });
+        }
+
+        showToast("Account created successfully 🎉", "success");
+
+      } else {
+        // LOGIN
+        await signInWithEmailAndPassword(auth, email, password);
+        showToast("Login successful ✅", "success");
+      }
+
+      dom.authModal.classList.add("hidden");
+
+    } catch (error) {
+      console.error(error);
+      if (dom.authAlertBox) {
+        dom.authAlertBox.textContent = error.message;
+        dom.authAlertBox.classList.remove("hidden");
+      }
+    }
+  });
+}
+
+
+// GOOGLE SIGN-IN
+if (dom.googleSignInBtn) {
+  dom.googleSignInBtn.addEventListener("click", async () => {
+    try {
+      await signInWithPopup(auth, googleProvider);
+      showToast("Google login successful 🚀", "success");
+    } catch (error) {
+      console.error(error);
+    }
+  });
+}
+
+
+// LOGOUT
+if (dom.logoutBtn) {
+  dom.logoutBtn.addEventListener("click", async () => {
+    await signOut(auth);
+    showToast("Logged out 👋", "info");
+  });
+}
+
+
+// FORGOT PASSWORD
+if (dom.forgotPasswordBtn) {
+  dom.forgotPasswordBtn.addEventListener("click", async () => {
+    const email = dom.authEmailInput.value;
+
+    if (!email) {
+      alert("Enter your email first");
+      return;
+    }
+
+    try {
+      await sendPasswordResetEmail(auth, email);
+      showToast("Password reset email sent 📧", "success");
+    } catch (error) {
+      console.error(error);
+    }
+  });
+}
 function setupEventListeners() {
   dom.navItems.forEach(btn => {
     btn.addEventListener('click', () => switchView(btn.dataset.view));
