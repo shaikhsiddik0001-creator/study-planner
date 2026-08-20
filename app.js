@@ -5,8 +5,7 @@
  * ============================================================================
  */
 
-import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
-
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
 import { 
   getAuth, 
   signInWithPopup, 
@@ -17,19 +16,17 @@ import {
   onAuthStateChanged,
   updateProfile,
   sendPasswordResetEmail
-} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-auth.js";
-
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
 import { 
   getFirestore, 
   doc, 
   getDoc, 
   setDoc 
-} from "https://www.gstatic.com/firebasejs/12.17.1/firebase-firestore.js";
+} from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-
-// ==================== FIREBASE CONFIG (FIXED) ====================
+// ==================== USER'S FIREBASE CONFIG ====================
 const firebaseConfig = {
-  apiKey: "AIzaSyA48UsElEffGTp9pmMMlnqiwjqNdI-zTPY", // ✅ correct key
+  apiKey: "AIzaSyA48UsElEffGTp9pmMMlnqiwjqNdI-zTPY", // ✅ Verified Key
   authDomain: "studayplanner.firebaseapp.com",
   projectId: "studayplanner",
   storageBucket: "studayplanner.firebasestorage.app",
@@ -38,12 +35,12 @@ const firebaseConfig = {
   measurementId: "G-SJF9TW2RYQ"
 };
 
-
-// ==================== INITIALIZE ====================
+// Initialize Firebase App, Auth & Firestore
 const firebaseApp = initializeApp(firebaseConfig);
 const auth = getAuth(firebaseApp);
 const db = getFirestore(firebaseApp);
 const googleProvider = new GoogleAuthProvider();
+
 // Local Storage Keys
 const STORAGE_KEYS = {
   TASKS: 'studyflow_tasks_v1',
@@ -398,7 +395,6 @@ async function syncFromCloud(uid) {
       }
       renderAll();
     } else {
-      // First time login: Upload existing local tasks to the cloud
       await syncToCloud();
     }
   } catch (error) {
@@ -727,11 +723,13 @@ function openAuthModal(mode = 'signin') {
   setAuthTab(mode);
   clearAuthAlert();
   dom.authForm.reset();
-  dom.authModal.showModal();
+  if (dom.authModal.showModal) dom.authModal.showModal();
+  else dom.authModal.classList.remove('hidden');
 }
 
 function closeAuthModal() {
-  dom.authModal.close();
+  if (dom.authModal.close) dom.authModal.close();
+  else dom.authModal.classList.add('hidden');
   clearAuthAlert();
 }
 
@@ -769,8 +767,9 @@ function clearAuthAlert() {
 async function handleGoogleSignIn() {
   try {
     clearAuthAlert();
-    const result = await signInWithPopup(auth, googleProvider);
+    await signInWithPopup(auth, googleProvider);
     closeAuthModal();
+    showToast('Google login successful! 🚀', 'success');
   } catch (error) {
     showAuthAlert(getFriendlyAuthErrorMessage(error.code));
   }
@@ -798,6 +797,7 @@ async function handleAuthFormSubmit(e) {
     } else {
       await signInWithEmailAndPassword(auth, email, password);
       closeAuthModal();
+      showToast('Login successful! ✅', 'success');
     }
   } catch (error) {
     showAuthAlert(getFriendlyAuthErrorMessage(error.code));
@@ -826,7 +826,7 @@ async function handleLogout() {
   try {
     await signOut(auth);
     dom.profileDropdown.classList.add('hidden');
-    showToast('Signed out successfully', 'info');
+    showToast('Signed out successfully 👋', 'info');
   } catch (error) {
     showToast('Error signing out', 'error');
   }
@@ -859,7 +859,8 @@ function openCreateTaskModal(defaultDate = null, defaultTime = null) {
   
   dom.taskPomoEstimate.value = 2;
   updatePomoCalcHint();
-  dom.taskModal.showModal();
+  if (dom.taskModal.showModal) dom.taskModal.showModal();
+  else dom.taskModal.classList.remove('hidden');
   setTimeout(() => dom.taskTitleInput.focus(), 50);
 }
 
@@ -880,11 +881,13 @@ function openEditTaskModal(taskId) {
   dom.taskModalTitle.textContent = 'Edit Study Task';
   dom.saveTaskBtnText.textContent = 'Update Task';
   updatePomoCalcHint();
-  dom.taskModal.showModal();
+  if (dom.taskModal.showModal) dom.taskModal.showModal();
+  else dom.taskModal.classList.remove('hidden');
 }
 
 function closeTaskModal() {
-  dom.taskModal.close();
+  if (dom.taskModal.close) dom.taskModal.close();
+  else dom.taskModal.classList.add('hidden');
 }
 
 function handleTaskFormSubmit(e) {
@@ -1588,7 +1591,8 @@ function handleExamFormSubmit(e) {
 
   state.exams.push(newExam);
   saveExams();
-  dom.examModal.close();
+  if (dom.examModal.close) dom.examModal.close();
+  else dom.examModal.classList.add('hidden');
   renderExamCountdown();
   renderCounters();
   showToast('Target exam added to countdown! 🎯', 'success');
@@ -1759,90 +1763,6 @@ function renderAnalyticsView() {
 // ==========================================
 // EVENT LISTENERS SETUP
 // ==========================================
-// ================= AUTH EVENT LISTENERS =================
-
-// SIGNUP / LOGIN FORM
-if (dom.authForm) {
-  dom.authForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-
-    const email = dom.authEmailInput.value;
-    const password = dom.authPasswordInput.value;
-    const name = dom.authNameInput.value;
-
-    try {
-      if (state.authMode === "signup") {
-        // SIGNUP
-        const userCred = await createUserWithEmailAndPassword(auth, email, password);
-
-        // Set display name
-        if (name) {
-          await updateProfile(userCred.user, {
-            displayName: name
-          });
-        }
-
-        showToast("Account created successfully 🎉", "success");
-
-      } else {
-        // LOGIN
-        await signInWithEmailAndPassword(auth, email, password);
-        showToast("Login successful ✅", "success");
-      }
-
-      dom.authModal.classList.add("hidden");
-
-    } catch (error) {
-      console.error(error);
-      if (dom.authAlertBox) {
-        dom.authAlertBox.textContent = error.message;
-        dom.authAlertBox.classList.remove("hidden");
-      }
-    }
-  });
-}
-
-
-// GOOGLE SIGN-IN
-if (dom.googleSignInBtn) {
-  dom.googleSignInBtn.addEventListener("click", async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-      showToast("Google login successful 🚀", "success");
-    } catch (error) {
-      console.error(error);
-    }
-  });
-}
-
-
-// LOGOUT
-if (dom.logoutBtn) {
-  dom.logoutBtn.addEventListener("click", async () => {
-    await signOut(auth);
-    showToast("Logged out 👋", "info");
-  });
-}
-
-
-// FORGOT PASSWORD
-if (dom.forgotPasswordBtn) {
-  dom.forgotPasswordBtn.addEventListener("click", async () => {
-    const email = dom.authEmailInput.value;
-
-    if (!email) {
-      alert("Enter your email first");
-      return;
-    }
-
-    try {
-      await sendPasswordResetEmail(auth, email);
-      showToast("Password reset email sent 📧", "success");
-    } catch (error) {
-      console.error(error);
-    }
-  });
-}
 function setupEventListeners() {
   dom.navItems.forEach(btn => {
     btn.addEventListener('click', () => switchView(btn.dataset.view));
@@ -1900,12 +1820,19 @@ function setupEventListeners() {
     dom.addExamBtn.addEventListener('click', () => {
       dom.examForm.reset();
       dom.examDateInput.value = formatDateISO(new Date());
-      dom.examModal.showModal();
+      if (dom.examModal.showModal) dom.examModal.showModal();
+      else dom.examModal.classList.remove('hidden');
     });
   }
   if (dom.examForm) dom.examForm.addEventListener('submit', handleExamFormSubmit);
-  if (dom.closeExamModalBtn) dom.closeExamModalBtn.addEventListener('click', () => dom.examModal.close());
-  if (dom.cancelExamModalBtn) dom.cancelExamModalBtn.addEventListener('click', () => dom.examModal.close());
+  if (dom.closeExamModalBtn) dom.closeExamModalBtn.addEventListener('click', () => {
+    if (dom.examModal.close) dom.examModal.close();
+    else dom.examModal.classList.add('hidden');
+  });
+  if (dom.cancelExamModalBtn) dom.cancelExamModalBtn.addEventListener('click', () => {
+    if (dom.examModal.close) dom.examModal.close();
+    else dom.examModal.classList.add('hidden');
+  });
 
   if (dom.studentQuickNotesArea) {
     dom.studentQuickNotesArea.addEventListener('input', saveNotes);
@@ -2126,9 +2053,12 @@ function setupEventListeners() {
       toggleTimer();
     }
     if (e.key === 'Escape') {
-      if (dom.taskModal.open) closeTaskModal();
-      if (dom.examModal.open) dom.examModal.close();
-      if (dom.authModal.open) closeAuthModal();
+      if (dom.taskModal && dom.taskModal.open) closeTaskModal();
+      if (dom.examModal && dom.examModal.open) {
+        if (dom.examModal.close) dom.examModal.close();
+        else dom.examModal.classList.add('hidden');
+      }
+      if (dom.authModal && dom.authModal.open) closeAuthModal();
     }
   });
 }
@@ -2394,7 +2324,8 @@ window.studyFlow = {
   openExamModal: () => {
     dom.examForm.reset();
     dom.examDateInput.value = formatDateISO(new Date());
-    dom.examModal.showModal();
+    if (dom.examModal.showModal) dom.examModal.showModal();
+    else dom.examModal.classList.remove('hidden');
   },
   deleteExam: deleteExam,
   applyTemplate: applyTemplate,
