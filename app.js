@@ -70,8 +70,16 @@ const STUDY_TIPS = [
   "Active recall + spaced repetition is 200% more effective than passive re-reading.",
   "Tackle your highest priority task first thing in the morning when mental energy is at its peak.",
   "Drink a glass of water before starting your next 25-minute Pomodoro session.",
-  "Break large study goals into bite-sized tasks under 45 minutes for consistent momentum."
+  "Break large study goals into bite-sized tasks under 45 minutes for consistent momentum.",
+  "Board / JEE tip: revise yesterday's mistakes before starting a new chapter.",
+  "Phone away for one Pomodoro. Even 25 minutes of deep work beats 2 hours of switching apps."
 ];
+
+const SEO_DOCUMENT_TITLE = 'Beast Mode Study Planner – Free Daily Schedule & Pomodoro Timer for Students';
+const VALID_VIEWS = ['dashboard', 'daily', 'weekly', 'monthly', 'pomodoro', 'examCountdown', 'quickNotes', 'analytics'];
+
+let cloudSyncTimer = null;
+let notesSaveTimer = null;
 
 const state = {
   currentUser: null,
@@ -300,14 +308,44 @@ function init() {
   calculateStreak();
   setupEventListeners();
   updateDateDisplay();
+  restoreSeoTitle();
+  applyRouteFromHash();
   renderAll();
   
   if (dom.dynamicStudyTip) {
     dom.dynamicStudyTip.textContent = STUDY_TIPS[Math.floor(Math.random() * STUDY_TIPS.length)];
   }
 
-  // Setup Firebase Auth State Listener
+  remindOverdueTasks();
   setupFirebaseAuthObserver();
+}
+
+function restoreSeoTitle() {
+  if (!state.pomodoro.isRunning) {
+    document.title = SEO_DOCUMENT_TITLE;
+  }
+}
+
+function applyRouteFromHash() {
+  const raw = (location.hash || '').replace('#', '').trim();
+  if (raw === 'faq' || raw === 'about') {
+    const el = document.getElementById(raw === 'about' ? 'aboutBeastMode' : 'faq');
+    if (el) setTimeout(() => el.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+    return;
+  }
+  if (VALID_VIEWS.includes(raw)) {
+    switchView(raw, { skipHash: true });
+  }
+}
+
+function remindOverdueTasks() {
+  const today = formatDateISO(new Date());
+  const overdue = state.tasks.filter(t => !t.completed && t.date && t.date < today);
+  if (overdue.length === 0) return;
+  const key = 'beastmode_overdue_toast_' + today;
+  if (sessionStorage.getItem(key)) return;
+  sessionStorage.setItem(key, '1');
+  showToast(`${overdue.length} overdue study task${overdue.length === 1 ? '' : 's'} — open All Tasks to catch up.`, 'info');
 }
 
 function setupFirebaseAuthObserver() {
@@ -316,7 +354,11 @@ function setupFirebaseAuthObserver() {
       state.currentUser = user;
       updateAuthUI(user);
       await syncFromCloud(user.uid);
-      showToast(`Welcome back, ${user.displayName || user.email.split('@')[0]}! ☁️`, 'success');
+      const greetKey = 'beastmode_welcome_' + user.uid;
+      if (!sessionStorage.getItem(greetKey)) {
+        sessionStorage.setItem(greetKey, '1');
+        showToast(`Welcome back, ${user.displayName || user.email.split('@')[0]}! ☁️`, 'success');
+      }
     } else {
       state.currentUser = null;
       updateAuthUI(null);
@@ -352,6 +394,14 @@ function updateAuthUI(user) {
 // ==========================================
 // CLOUD FIRESTORE SYNC LOGIC
 // ==========================================
+function scheduleCloudSync() {
+  if (!state.currentUser) return;
+  clearTimeout(cloudSyncTimer);
+  cloudSyncTimer = setTimeout(() => {
+    syncToCloud();
+  }, 1200);
+}
+
 async function syncToCloud() {
   if (!state.currentUser) return;
   try {
@@ -395,6 +445,7 @@ async function syncFromCloud(uid) {
       }
       renderAll();
     } else {
+      // First time login: Upload existing local tasks to the cloud
       await syncToCloud();
     }
   } catch (error) {
@@ -420,7 +471,7 @@ function loadTasksLocal() {
 
 function saveTasks() {
   saveTasksLocalOnly();
-  syncToCloud();
+  scheduleCloudSync();
 }
 
 function saveTasksLocalOnly() {
@@ -453,7 +504,7 @@ function loadExamsLocal() {
 
 function saveExams() {
   saveExamsLocalOnly();
-  syncToCloud();
+  scheduleCloudSync();
 }
 
 function saveExamsLocalOnly() {
@@ -470,7 +521,8 @@ function saveNotes() {
   if (dom.studentQuickNotesArea) {
     state.quickNotes = dom.studentQuickNotesArea.value;
     saveNotesLocalOnly();
-    syncToCloud();
+    clearTimeout(notesSaveTimer);
+    notesSaveTimer = setTimeout(() => scheduleCloudSync(), 800);
   }
 }
 
@@ -539,18 +591,37 @@ function recordPomodoroSession(minutes) {
       saveTasks();
     }
   }
-  syncToCloud();
+  calculateStreak();
+  scheduleCloudSync();
   renderStats();
   renderPomodoroView();
 }
 
 function calculateStreak() {
   try {
-    let streak = parseInt(localStorage.getItem(STORAGE_KEYS.STREAK) || '3', 10);
+    const stats = JSON.parse(localStorage.getItem(STORAGE_KEYS.POMO_STATS) || '{}');
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    const todayKey = formatDateISO(cursor);
+    if (!(stats[todayKey] && stats[todayKey].minutes > 0)) {
+      cursor.setDate(cursor.getDate() - 1);
+    }
+    let streak = 0;
+    while (true) {
+      const key = formatDateISO(cursor);
+      if (stats[key] && stats[key].minutes > 0) {
+        streak += 1;
+        cursor.setDate(cursor.getDate() - 1);
+      } else {
+        break;
+      }
+    }
     state.streakDays = streak;
+    localStorage.setItem(STORAGE_KEYS.STREAK, String(streak));
     if (dom.streakDays) dom.streakDays.textContent = streak;
   } catch (e) {
-    state.streakDays = 1;
+    state.streakDays = 0;
+    if (dom.streakDays) dom.streakDays.textContent = '0';
   }
 }
 
@@ -660,8 +731,8 @@ function applyTemplate(type) {
 // ==========================================
 // VIEW NAVIGATION & THEME
 // ==========================================
-function switchView(viewName) {
-  if (!viewName) return;
+function switchView(viewName, options = {}) {
+  if (!viewName || !VALID_VIEWS.includes(viewName)) return;
   state.currentView = viewName;
 
   dom.navItems.forEach(item => {
@@ -688,6 +759,13 @@ function switchView(viewName) {
   if (titles[viewName]) {
     dom.pageHeading.textContent = titles[viewName].title;
     dom.pageSubHeading.textContent = titles[viewName].sub;
+  }
+
+  if (!options.skipHash) {
+    const nextHash = '#' + viewName;
+    if (location.hash !== nextHash) {
+      history.replaceState(null, '', nextHash);
+    }
   }
 
   closeMobileSidebar();
@@ -1411,6 +1489,7 @@ function toggleTimer(forcedState = null) {
   state.pomodoro.isRunning = willRun;
 
   if (willRun) {
+    requestDesktopNotificationPermission();
     dom.timerToggleText.textContent = 'Pause Focus';
     dom.timerPlayIcon.classList.add('hidden');
     dom.timerPauseIcon.classList.remove('hidden');
@@ -1427,6 +1506,7 @@ function toggleTimer(forcedState = null) {
         handleTimerComplete();
       }
     }, 1000);
+    updateTimerDisplay();
   } else {
     clearInterval(state.pomodoro.intervalId);
     dom.timerToggleText.textContent = 'Resume Focus';
@@ -1435,6 +1515,7 @@ function toggleTimer(forcedState = null) {
     dom.quickTimerDot.classList.remove('running');
     dom.timerStateLabel.textContent = 'Paused';
     stopAmbientAudio();
+    restoreSeoTitle();
   }
 }
 
@@ -1457,6 +1538,7 @@ function handleTimerComplete() {
   state.pomodoro.isRunning = false;
   dom.quickTimerDot.classList.remove('running');
   stopAmbientAudio();
+  restoreSeoTitle();
 
   if (state.pomodoro.soundNotification) {
     playChimeSound(523.25, 1046.50);
@@ -1467,13 +1549,30 @@ function handleTimerComplete() {
     recordPomodoroSession(minsStudied);
     triggerConfetti();
     showToast(`🎯 Great job! Completed ${minsStudied} minutes of deep focus!`, 'success');
+    sendDesktopNotification('Focus session complete', `You studied ${minsStudied} minutes. Time for a short break.`);
     setPomodoroMode('shortBreak');
   } else {
     showToast('Break finished! Ready for another focus session?', 'info');
+    sendDesktopNotification('Break over', 'Ready for another Beast Mode focus session?');
     setPomodoroMode('pomodoro');
   }
 
   if (state.pomodoro.autoStart) toggleTimer(true);
+}
+
+function requestDesktopNotificationPermission() {
+  if (!('Notification' in window)) return;
+  if (Notification.permission === 'default') {
+    Notification.requestPermission().catch(() => {});
+  }
+}
+
+function sendDesktopNotification(title, body) {
+  if (!('Notification' in window) || Notification.permission !== 'granted') return;
+  if (document.visibilityState === 'visible') return;
+  try {
+    new Notification(title, { body, silent: false });
+  } catch (e) {}
 }
 
 function updateTimerDisplay() {
@@ -1481,10 +1580,15 @@ function updateTimerDisplay() {
   const secs = state.pomodoro.timeLeft % 60;
   const timeStr = `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
 
-  dom.timerDigits.textContent = timeStr;
-  dom.quickTimerText.textContent = timeStr;
-  dom.sidebarTimerBadge.textContent = `${mins}m`;
-  document.title = `(${timeStr}) BEASTMODE — Focus & Study`;
+  if (dom.timerDigits) dom.timerDigits.textContent = timeStr;
+  if (dom.quickTimerText) dom.quickTimerText.textContent = timeStr;
+  if (dom.sidebarTimerBadge) dom.sidebarTimerBadge.textContent = `${mins}m`;
+
+  if (state.pomodoro.isRunning) {
+    document.title = `(${timeStr}) Beast Mode Study Planner`;
+  } else {
+    restoreSeoTitle();
+  }
 
   const circumference = 753.98;
   const progress = state.pomodoro.totalDuration > 0 ? (state.pomodoro.timeLeft / state.pomodoro.totalDuration) : 0;
@@ -1764,6 +1868,8 @@ function renderAnalyticsView() {
 // EVENT LISTENERS SETUP
 // ==========================================
 function setupEventListeners() {
+  window.addEventListener('hashchange', applyRouteFromHash);
+
   dom.navItems.forEach(btn => {
     btn.addEventListener('click', () => switchView(btn.dataset.view));
   });
