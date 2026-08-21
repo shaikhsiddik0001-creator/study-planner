@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://shaikhsiddik0001-creator.github.io/study-planner/sitemap.xml

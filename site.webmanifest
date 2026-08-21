@@ -1,0 +1,12 @@
+{
+  "name": "Beast Mode Study Planner",
+  "short_name": "BEASTMODE",
+  "description": "Free daily study timetable, exam countdown, and Pomodoro timer for students.",
+  "start_url": "/study-planner/",
+  "scope": "/study-planner/",
+  "display": "standalone",
+  "background_color": "#0c0e14",
+  "theme_color": "#0c0e14",
+  "lang": "en",
+  "categories": ["education", "productivity"]
+}
