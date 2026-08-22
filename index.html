@@ -47,8 +47,12 @@
   <meta name="twitter:image" content="https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&auto=format&fit=crop&q=80">
   <meta name="twitter:image:alt" content="Beast Mode Study Planner dashboard">
 
-  <!-- Browser Favicon -->
-  <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔥</text></svg>">
+  <!-- Favicons: Google Search needs a crawlable 48x48+ PNG (not emoji SVG) -->
+  <link rel="icon" type="image/png" sizes="48x48" href="favicon-48.png">
+  <link rel="icon" type="image/png" sizes="96x96" href="icons/icon-96.png">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="apple-touch-icon.png">
+  <link rel="shortcut icon" href="favicon.png">
 
   <!-- Google Fonts -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -91,7 +95,8 @@
           "@type": "Person",
           "name": "Shaikh Siddik"
         },
-        "screenshot": "https://images.unsplash.com/photo-1434030216411-0b793f4b4173?w=1200&auto=format&fit=crop&q=80"
+        "image": "https://shaikhsiddik0001-creator.github.io/study-planner/icons/icon-512.png",
+        "screenshot": "https://shaikhsiddik0001-creator.github.io/study-planner/icons/icon-512.png"
       },
       {
         "@type": "FAQPage",
@@ -280,8 +285,15 @@
 
       <!-- Sidebar Footer -->
       <div class="sidebar-footer">
+        <button type="button" class="btn-install-app hidden" id="installAppBtn">
+          <img src="icons/icon-96.png" width="22" height="22" alt="">
+          <span>Install App</span>
+        </button>
+
         <div class="streak-card">
-          <div class="streak-icon">🔥</div>
+          <div class="streak-icon">
+            <img src="icons/icon-96.png" width="28" height="28" alt="BEASTMODE">
+          </div>
           <div class="streak-info">
             <div class="streak-count"><span id="streakDays">3</span> Day Study Streak</div>
             <div class="streak-sub">Keep the momentum going!</div>
