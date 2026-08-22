@@ -293,8 +293,11 @@ const dom = {
   importDataInput: document.getElementById('importDataInput'),
   resetDataBtn: document.getElementById('resetDataBtn'),
   toastContainer: document.getElementById('toastContainer'),
-  confettiCanvas: document.getElementById('confettiCanvas')
+  confettiCanvas: document.getElementById('confettiCanvas'),
+  installAppBtn: document.getElementById('installAppBtn')
 };
+
+let deferredInstallPrompt = null;
 
 // ==========================================
 // INITIALIZATION & AUTH OBSERVER
@@ -318,6 +321,40 @@ function init() {
 
   remindOverdueTasks();
   setupFirebaseAuthObserver();
+  registerServiceWorker();
+  setupPwaInstall();
+}
+
+function registerServiceWorker() {
+  if (!('serviceWorker' in navigator)) return;
+  navigator.serviceWorker.register('./sw.js').catch(() => {});
+}
+
+function setupPwaInstall() {
+  window.addEventListener('beforeinstallprompt', (event) => {
+    event.preventDefault();
+    deferredInstallPrompt = event;
+    if (dom.installAppBtn) dom.installAppBtn.classList.remove('hidden');
+  });
+
+  window.addEventListener('appinstalled', () => {
+    deferredInstallPrompt = null;
+    if (dom.installAppBtn) dom.installAppBtn.classList.add('hidden');
+    showToast('BEASTMODE installed on your device 🔥', 'success');
+  });
+
+  if (dom.installAppBtn) {
+    dom.installAppBtn.addEventListener('click', async () => {
+      if (!deferredInstallPrompt) {
+        showToast('On phone: Chrome menu → Add to Home screen', 'info');
+        return;
+      }
+      deferredInstallPrompt.prompt();
+      await deferredInstallPrompt.userChoice;
+      deferredInstallPrompt = null;
+      dom.installAppBtn.classList.add('hidden');
+    });
+  }
 }
 
 function restoreSeoTitle() {
