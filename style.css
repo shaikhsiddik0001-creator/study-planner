@@ -1709,3 +1709,49 @@ button {
   color: var(--text-main);
 }
 .faq-card details p { margin: 8px 0 0; }
+/* ==================== FLOATING WHATSAPP CHANNEL WIDGET ==================== */
+.whatsapp-widget-container {
+  position: fixed;
+  bottom: 24px;
+  right: 24px;
+  z-index: 9999;
+}
+
+.whatsapp-float-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: #25D366;
+  color: #ffffff !important;
+  padding: 12px 18px;
+  border-radius: 50px;
+  box-shadow: 0 4px 20px rgba(37, 211, 102, 0.4);
+  font-weight: 700;
+  font-size: 0.92rem;
+  border: none;
+  text-decoration: none !important;
+  cursor: pointer;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.whatsapp-float-btn:hover {
+  transform: translateY(-3px) scale(1.03);
+  box-shadow: 0 8px 28px rgba(37, 211, 102, 0.6);
+  color: #ffffff !important;
+}
+
+.wa-badge {
+  background: #ffffff;
+  color: #075E54;
+  padding: 2px 8px;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 800;
+}
+
+@media (max-width: 768px) {
+  .whatsapp-widget-container {
+    bottom: 74px;
+    right: 16px;
+  }
+}
