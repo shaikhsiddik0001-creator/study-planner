@@ -76,7 +76,7 @@ const STUDY_TIPS = [
 ];
 
 const SEO_DOCUMENT_TITLE = 'Beast Mode Study Planner – Free Daily Schedule & Pomodoro Timer for Students';
-const VALID_VIEWS = ['dashboard', 'daily', 'weekly', 'monthly', 'pomodoro', 'examCountdown', 'quickNotes', 'analytics'];
+const VALID_VIEWS = ['dashboard', 'daily', 'weekly', 'monthly', 'pomodoro', 'examCountdown', 'quickNotes', 'analytics', 'aiPredictor'];
 
 let cloudSyncTimer = null;
 let notesSaveTimer = null;
@@ -134,6 +134,7 @@ const dom = {
   navItems: document.querySelectorAll('.nav-item, .mobile-nav-btn'),
   navAllCount: document.getElementById('navAllCount'),
   navTodayCount: document.getElementById('navTodayCount'),
+  navWarningCount: document.getElementById('navWarningCount'),
   sidebarTimerBadge: document.getElementById('sidebarTimerBadge'),
   sidebarExamBadge: document.getElementById('sidebarExamBadge'),
   streakDays: document.getElementById('streakDays'),
@@ -141,6 +142,30 @@ const dom = {
   quickTimerText: document.getElementById('quickTimerText'),
   quickTimerDot: document.getElementById('quickTimerDot'),
   viewPanels: document.querySelectorAll('.view-panel'),
+  
+  // Predictor & Warnings Elements
+  dashReadinessBadge: document.getElementById('dashReadinessBadge'),
+  dashVelocityTag: document.getElementById('dashVelocityTag'),
+  dashWarningsContainer: document.getElementById('dashWarningsContainer'),
+  dashCoachQuote: document.getElementById('dashCoachQuote'),
+  dashCoachTip: document.getElementById('dashCoachTip'),
+  dashCoachNudgeBtn: document.getElementById('dashCoachNudgeBtn'),
+  jumpToAiPredictorBtn: document.getElementById('jumpToAiPredictorBtn'),
+
+  viewReadinessScore: document.getElementById('viewReadinessScore'),
+  viewGaugeCircle: document.getElementById('viewGaugeCircle'),
+  viewPredictorStatusTitle: document.getElementById('viewPredictorStatusTitle'),
+  viewVelocityPill: document.getElementById('viewVelocityPill'),
+  viewPredictorDesc: document.getElementById('viewPredictorDesc'),
+  viewDaysToFinish: document.getElementById('viewDaysToFinish'),
+  viewNearestExam: document.getElementById('viewNearestExam'),
+  viewReqSpeed: document.getElementById('viewReqSpeed'),
+  viewWarningCountBadge: document.getElementById('viewWarningCountBadge'),
+  viewWarningsDetailedList: document.getElementById('viewWarningsDetailedList'),
+  viewCoachQuoteLarge: document.getElementById('viewCoachQuoteLarge'),
+  viewCoachActionSteps: document.getElementById('viewCoachActionSteps'),
+  viewCoachNudgeBtn: document.getElementById('viewCoachNudgeBtn'),
+  viewSubjectVelocityGrid: document.getElementById('viewSubjectVelocityGrid'),
   statTotalTasks: document.getElementById('statTotalTasks'),
   statCompletedTasks: document.getElementById('statCompletedTasks'),
   statCompletionBar: document.getElementById('statCompletionBar'),
@@ -268,8 +293,16 @@ const dom = {
   barLowPriority: document.getElementById('barLowPriority'),
   countHighPriority: document.getElementById('countHighPriority'),
   countMedPriority: document.getElementById('countMedPriority'),
-  countLowPriority: document.getElementById('countLowPriority'),
-  
+  // Badges & Share Card
+  badgesGrid: document.getElementById('badgesGrid'),
+  badgesCountBadge: document.getElementById('badgesCountBadge'),
+  openShareModalBtn: document.getElementById('openShareModalBtn'),
+  shareCardModal: document.getElementById('shareCardModal'),
+  closeShareCardModalBtn: document.getElementById('closeShareCardModalBtn'),
+  shareCanvas: document.getElementById('shareCanvas'),
+  downloadShareCardBtn: document.getElementById('downloadShareCardBtn'),
+  webShareBtn: document.getElementById('webShareBtn'),
+
   // Task Modal
   taskModal: document.getElementById('taskModal'),
   taskForm: document.getElementById('taskForm'),
@@ -790,7 +823,8 @@ function switchView(viewName, options = {}) {
     pomodoro: { title: 'Pomodoro Focus Timer', sub: 'Deep work interval station with ambient study sounds' },
     examCountdown: { title: 'Exam Countdown Tracker', sub: 'Stay prepared with target days remaining' },
     quickNotes: { title: 'Study Notes & Formulas', sub: 'Your instant scratchpad for key notes and equations' },
-    analytics: { title: 'Study Analytics', sub: 'Track completion metrics, subject balance, and streak' }
+    analytics: { title: 'Study Analytics', sub: 'Track completion metrics, subject balance, and streak' },
+    aiPredictor: { title: 'AI Predictor & Coach', sub: 'Exam readiness score, danger warnings, and motivational protocol' }
   };
 
   if (titles[viewName]) {
@@ -1154,6 +1188,7 @@ function renderAll() {
   renderCounters();
   renderStats();
   renderFilterChips();
+  renderPredictorAndWarnings();
 
   switch (state.currentView) {
     case 'dashboard': renderDashboardTaskList(); break;
@@ -1164,6 +1199,7 @@ function renderAll() {
     case 'examCountdown': renderExamCountdown(); break;
     case 'quickNotes': loadNotesLocal(); break;
     case 'analytics': renderAnalyticsView(); break;
+    case 'aiPredictor': renderAiPredictorView(); break;
   }
 }
 
@@ -1902,6 +1938,277 @@ function renderAnalyticsView() {
 }
 
 // ==========================================
+// AI PREDICTOR, EXAM WARNINGS & MOTIVATOR ENGINE
+// ==========================================
+
+function calculateBeastPredictions() {
+  const total = state.tasks.length;
+  const completed = state.tasks.filter(t => t.completed).length;
+  const pending = total - completed;
+  const highPending = state.tasks.filter(t => !t.completed && t.priority === 'high').length;
+
+  const now = new Date();
+  const sevenDaysAgo = new Date(); sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
+  const sevenDaysStr = formatDateISO(sevenDaysAgo);
+
+  const completedRecent = state.tasks.filter(t => t.completed && t.date && t.date >= sevenDaysStr).length;
+  let velocity = completedRecent > 0 ? (completedRecent / 7) : (completed > 0 ? 0.8 : 0.5);
+  velocity = Math.round(velocity * 10) / 10;
+
+  const todayStr = formatDateISO(now);
+  const upcomingExams = state.exams
+    .filter(e => e.date && e.date >= todayStr)
+    .sort((a, b) => a.date.localeCompare(b.date));
+
+  let nearestExam = upcomingExams[0] || null;
+  let daysToExam = null;
+  let daysToFinish = Math.ceil(pending / (velocity || 1));
+
+  if (nearestExam) {
+    const examDate = new Date(nearestExam.date + 'T00:00:00');
+    daysToExam = Math.max(0, Math.round((examDate - now) / (1000 * 60 * 60 * 24)));
+  }
+
+  let requiredSpeed = 0;
+  if (daysToExam !== null && daysToExam > 0) {
+    requiredSpeed = Math.round((pending / daysToExam) * 10) / 10;
+  } else if (daysToExam === 0) {
+    requiredSpeed = pending;
+  }
+
+  let score = 100;
+  if (total > 0) {
+    const completionPct = (completed / total) * 60;
+    const velocityFactor = Math.min(25, velocity * 10);
+    const highPriorityPen = highPending * 5;
+    score = Math.round(completionPct + velocityFactor - highPriorityPen);
+
+    if (daysToExam !== null && daysToExam > 0) {
+      if (daysToFinish <= daysToExam) {
+        score += 15;
+      } else {
+        score -= (daysToFinish - daysToExam) * 8;
+      }
+    }
+  }
+
+  score = Math.max(10, Math.min(100, score));
+
+  let status = 'ON_TRACK';
+  let badgeClass = 'badge-on-track';
+  let statusText = '🟢 ON TRACK • Target Safe';
+
+  if (score < 50 || (daysToExam !== null && daysToFinish > daysToExam + 2)) {
+    status = 'HIGH_DANGER';
+    badgeClass = 'badge-danger-zone';
+    statusText = '🔴 HIGH DANGER • Behind Schedule';
+  } else if (score < 75 || (daysToExam !== null && requiredSpeed > velocity)) {
+    status = 'TIGHT_PACE';
+    badgeClass = 'badge-tight-pace';
+    statusText = '🟡 TIGHT PACE • Requires Extra Speed';
+  }
+
+  return {
+    total, completed, pending, highPending,
+    velocity, nearestExam, daysToExam, daysToFinish,
+    requiredSpeed, score, status, badgeClass, statusText
+  };
+}
+
+function generateActiveWarnings() {
+  const pred = calculateBeastPredictions();
+  const warnings = [];
+  const todayStr = formatDateISO(new Date());
+
+  if (pred.nearestExam && pred.daysToExam !== null && pred.daysToExam <= 7 && pred.pending > 2) {
+    warnings.push({
+      id: 'warn_exam',
+      type: pred.daysToExam <= 3 ? 'danger' : 'warning',
+      icon: '🚨',
+      title: `Exam Alert: "${pred.nearestExam.title}" is in ${pred.daysToExam} Days!`,
+      sub: `You have ${pred.pending} pending study tasks. Need to complete at least ${pred.requiredSpeed} tasks/day!`
+    });
+  }
+
+  const overdueHigh = state.tasks.filter(t => !t.completed && t.priority === 'high' && t.date && t.date < todayStr);
+  if (overdueHigh.length > 0) {
+    warnings.push({
+      id: 'warn_overdue',
+      type: 'danger',
+      icon: '⚠️',
+      title: `High Priority Backlog (${overdueHigh.length} Overdue Tasks)`,
+      sub: `Urgent tasks like "${overdueHigh[0].title}" missed past deadline. Clear them now to reduce exam pressure.`
+    });
+  }
+
+  if (state.streakDays >= 2 && state.pomodoro.todayCompleted === 0) {
+    warnings.push({
+      id: 'warn_streak',
+      type: 'warning',
+      icon: '🔥',
+      title: `Study Streak at Risk! (${state.streakDays} Days active)`,
+      sub: `Log 1 Pomodoro session before today ends to save your streak.`
+    });
+  }
+
+  if (state.pomodoro.todayMinutes < 30 && pred.pending > 0) {
+    warnings.push({
+      id: 'warn_deficit',
+      type: 'info',
+      icon: '⏱️',
+      title: `Low Daily Study Volume (${state.pomodoro.todayMinutes}m studied today)`,
+      sub: `Aim for at least 2 Pomodoro focus sessions (50 mins) today to stay consistent.`
+    });
+  }
+
+  return warnings;
+}
+
+const MOTIVATION_QUOTES = {
+  HIGH_DANGER: [
+    { quote: "🔥 Real-Talk: 'Kal karunga' bolne se topper nahi bante! Ek task uthao aur abhi finish karo.", tip: "💡 Action: High Priority pending task ko select karke 25m Pomodoro chalao." },
+    { quote: "⚡ Regret 100x zyada painful hota hai 45-minute padhai ki mehnat se. Show up now!", tip: "💡 Action: Aaj 2 high-priority chapters complete karna zaruri hai." }
+  ],
+  TIGHT_PACE: [
+    { quote: "🟡 Schedule tight hai, lekin aap abhi bhi aage nikal sakte ho! Speed +1.5x karo.", tip: "💡 Action: Phone ko Silent/DND pe dalo aur 2 back-to-back Pomodoro sessions karo." },
+    { quote: "💪 Champions peak performance under pressure dete hain. You've got this!", tip: "💡 Action: 1 Hour focus block complete karke syllabus deficit recover karo." }
+  ],
+  ON_TRACK: [
+    { quote: "🌟 BEASTMODE ACTIVE! Aapka pace perfect hai. Target exam phodna pakka hai!", tip: "💡 Action: Consistency maintain rakho. Next week ki revision schedule bhi pehle se bana lo." },
+    { quote: "🔥 Momentum is your superpower. Outperform your yesterday's self!", tip: "💡 Action: Active recall flashcards revision attempt karo." }
+  ]
+};
+
+function getMotivationalNudge(pred) {
+  const list = MOTIVATION_QUOTES[pred.status] || MOTIVATION_QUOTES.ON_TRACK;
+  return list[Math.floor(Math.random() * list.length)];
+}
+
+function renderPredictorAndWarnings() {
+  const pred = calculateBeastPredictions();
+  const warnings = generateActiveWarnings();
+
+  if (dom.navWarningCount) {
+    if (warnings.length > 0) {
+      dom.navWarningCount.textContent = warnings.length;
+      dom.navWarningCount.style.display = 'inline-block';
+    } else {
+      dom.navWarningCount.style.display = 'none';
+    }
+  }
+
+  if (dom.dashReadinessBadge) {
+    dom.dashReadinessBadge.className = `predictor-badge ${pred.badgeClass}`;
+    dom.dashReadinessBadge.textContent = `${pred.statusText.split('•')[0]} • ${pred.score}% Readiness`;
+  }
+  if (dom.dashVelocityTag) {
+    dom.dashVelocityTag.textContent = `⚡ Pace: ${pred.velocity} tasks/day`;
+  }
+  if (dom.dashWarningsContainer) {
+    if (warnings.length === 0) {
+      dom.dashWarningsContainer.innerHTML = '';
+    } else {
+      dom.dashWarningsContainer.innerHTML = warnings.slice(0, 2).map(w => `
+        <div class="warning-alert-item ${w.type}">
+          <span class="alert-icon">${w.icon}</span>
+          <div class="alert-text-wrap">
+            <div class="alert-title">${escapeHTML(w.title)}</div>
+            <div class="alert-sub">${escapeHTML(w.sub)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  if (state.currentView === 'aiPredictor') {
+    renderAiPredictorView(pred, warnings);
+  }
+}
+
+function renderAiPredictorView(predParam = null, warningsParam = null) {
+  const pred = predParam || calculateBeastPredictions();
+  const warnings = warningsParam || generateActiveWarnings();
+
+  if (dom.viewReadinessScore) dom.viewReadinessScore.textContent = `${pred.score}%`;
+  if (dom.viewPredictorStatusTitle) dom.viewPredictorStatusTitle.textContent = pred.statusText;
+  if (dom.viewVelocityPill) dom.viewVelocityPill.textContent = `⚡ Pacing: ${pred.velocity} Tasks / Day`;
+  
+  if (dom.viewPredictorDesc) {
+    if (pred.status === 'HIGH_DANGER') {
+      dom.viewPredictorDesc.innerHTML = `⚠️ <strong>CRITICAL ALERT:</strong> At current completion speed (${pred.velocity} tasks/day), you will fall short of your syllabus targets! You need to increase pace to at least <strong>${pred.requiredSpeed} tasks/day</strong>.`;
+    } else if (pred.status === 'TIGHT_PACE') {
+      dom.viewPredictorDesc.innerHTML = `🟡 <strong>TIGHT SCHEDULE:</strong> Your velocity is close to the minimum required speed (${pred.requiredSpeed} tasks/day). Log 1-2 extra Pomodoro sessions daily for safety.`;
+    } else {
+      dom.viewPredictorDesc.innerHTML = `🟢 <strong>BEASTMODE ON TRACK:</strong> Based on your completion velocity, your study targets are safe and well-prepared for your exams!`;
+    }
+  }
+
+  if (dom.viewDaysToFinish) dom.viewDaysToFinish.textContent = `${pred.daysToFinish} Days`;
+  if (dom.viewNearestExam) dom.viewNearestExam.textContent = pred.nearestExam ? `${pred.nearestExam.title} (${pred.daysToExam}d left)` : 'No Upcoming Exams';
+  if (dom.viewReqSpeed) dom.viewReqSpeed.textContent = `${pred.requiredSpeed} Tasks / Day`;
+
+  if (dom.viewWarningCountBadge) dom.viewWarningCountBadge.textContent = `${warnings.length} Active Alerts`;
+  if (dom.viewWarningsDetailedList) {
+    if (warnings.length === 0) {
+      dom.viewWarningsDetailedList.innerHTML = `<div class="empty-warning-msg">✅ No active red alerts! Your study schedule is clean and on track.</div>`;
+    } else {
+      dom.viewWarningsDetailedList.innerHTML = warnings.map(w => `
+        <div class="warning-alert-item ${w.type}">
+          <span class="alert-icon">${w.icon}</span>
+          <div class="alert-text-wrap">
+            <div class="alert-title">${escapeHTML(w.title)}</div>
+            <div class="alert-sub">${escapeHTML(w.sub)}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  const nudge = getMotivationalNudge(pred);
+  if (dom.viewCoachQuoteLarge) dom.viewCoachQuoteLarge.textContent = `"${nudge.quote}"`;
+  if (dom.dashCoachQuote) dom.dashCoachQuote.textContent = `"${nudge.quote}"`;
+  if (dom.dashCoachTip) dom.dashCoachTip.textContent = nudge.tip;
+
+  if (dom.viewCoachActionSteps) {
+    const highTask = state.tasks.find(t => !t.completed && t.priority === 'high');
+    dom.viewCoachActionSteps.innerHTML = `
+      <div class="action-step-item">🎯 ${nudge.tip}</div>
+      ${highTask ? `<div class="action-step-item">🔥 Focus Task: "${escapeHTML(highTask.title)}" (${highTask.subject})</div>` : ''}
+      <div class="action-step-item">📱 Phone on Do Not Disturb for your next 45-min session.</div>
+    `;
+  }
+
+  if (dom.viewSubjectVelocityGrid) {
+    const total = state.tasks.length;
+    const subjectMap = {};
+    state.tasks.forEach(t => {
+      if (!subjectMap[t.subject]) subjectMap[t.subject] = { total: 0, completed: 0 };
+      subjectMap[t.subject].total += 1;
+      if (t.completed) subjectMap[t.subject].completed += 1;
+    });
+
+    const entries = Object.entries(subjectMap);
+    if (entries.length === 0) {
+      dom.viewSubjectVelocityGrid.innerHTML = `<p style="color: var(--text-muted);">No subject task data available yet.</p>`;
+    } else {
+      dom.viewSubjectVelocityGrid.innerHTML = entries.map(([subj, data]) => {
+        const pct = Math.round((data.completed / data.total) * 100);
+        const color = getSubjectColor(subj);
+        return `
+          <div class="subject-vel-row">
+            <span class="subject-vel-name" title="${escapeHTML(subj)}">${escapeHTML(subj)}</span>
+            <div class="subject-vel-bar-wrap">
+              <div class="subject-vel-bar-fill" style="width: ${pct}%; background-color: ${color};"></div>
+            </div>
+            <span class="subject-vel-stat">${data.completed}/${data.total} (${pct}%)</span>
+          </div>
+        `;
+      }).join('');
+    }
+  }
+}
+
+// ==========================================
 // EVENT LISTENERS SETUP
 // ==========================================
 function setupEventListeners() {
@@ -1915,6 +2222,23 @@ function setupEventListeners() {
   if (dom.closeSidebarBtn) dom.closeSidebarBtn.addEventListener('click', closeMobileSidebar);
   if (dom.sidebarBackdrop) dom.sidebarBackdrop.addEventListener('click', closeMobileSidebar);
   if (dom.themeToggleBtn) dom.themeToggleBtn.addEventListener('click', toggleTheme);
+
+  // Predictor & Coach Buttons
+  if (dom.jumpToAiPredictorBtn) {
+    dom.jumpToAiPredictorBtn.addEventListener('click', () => switchView('aiPredictor'));
+  }
+  if (dom.dashCoachNudgeBtn) {
+    dom.dashCoachNudgeBtn.addEventListener('click', () => {
+      renderPredictorAndWarnings();
+      showToast('Fresh AI Coach Nudge generated! ⚡', 'info');
+    });
+  }
+  if (dom.viewCoachNudgeBtn) {
+    dom.viewCoachNudgeBtn.addEventListener('click', () => {
+      renderAiPredictorView();
+      showToast('Fresh motivational action plan generated! 🔥', 'success');
+    });
+  }
 
   // Auth Modal & Profile Dropdown
   if (dom.openAuthModalBtn) dom.openAuthModalBtn.addEventListener('click', () => openAuthModal('signin'));
