@@ -271,6 +271,14 @@
           <span>Study Notes & Formulas</span>
         </button>
 
+        <button class="nav-item" data-view="aiPredictor" id="navAiPredictor">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"></path>
+          </svg>
+          <span>AI Predictor & Coach</span>
+          <span class="nav-counter danger-badge" id="navWarningCount" style="display: none;">0</span>
+        </button>
+
         <button class="nav-item" data-view="analytics" id="navAnalytics">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M3 3v18h18"></path>
@@ -348,6 +356,11 @@
             <div class="timer-dot" id="quickTimerDot"></div>
             <span class="timer-text" id="quickTimerText">25:00</span>
           </div>
+
+          <!-- Share Card Button -->
+          <button class="btn-primary" id="openShareModalBtn" title="Generate Shareable Progress Card for Status/Story" style="background: linear-gradient(135deg, #8b5cf6 0%, #ec4899 100%); font-size: 0.82rem; padding: 6px 14px;">
+            <span>📸 Share Card</span>
+          </button>
 
           <!-- Firebase Auth Profile / Sign In Button -->
           <div class="auth-topbar-section" id="authTopbarSection">
@@ -459,6 +472,32 @@
             </div>
           </div>
 
+          <!-- Predictor & Warning Hero Banner -->
+          <div class="predictor-hero-widget" id="predictorHeroWidget">
+            <div class="predictor-hero-header">
+              <div class="predictor-badge-group">
+                <span class="predictor-badge badge-on-track" id="dashReadinessBadge">🟢 ON TRACK • 100% Readiness</span>
+                <span class="predictor-velocity-tag" id="dashVelocityTag">⚡ Pacing: 0 tasks/day</span>
+              </div>
+              <button class="btn-ghost-sm" id="jumpToAiPredictorBtn">View Full Predictor & Coach →</button>
+            </div>
+            
+            <!-- Red / Amber Warning Alert Container -->
+            <div class="warning-alerts-container" id="dashWarningsContainer">
+              <!-- Dynamically injected warning banners -->
+            </div>
+
+            <!-- Motivator Coach Mini Card -->
+            <div class="motivator-coach-card" id="dashCoachCard">
+              <div class="coach-avatar">⚡</div>
+              <div class="coach-text-wrap">
+                <p class="coach-quote" id="dashCoachQuote">"Beast Mode is active! Complete your scheduled tasks today to stay ahead."</p>
+                <span class="coach-action-tip" id="dashCoachTip">💡 Tip: Target 2 Pomodoro focus sessions today.</span>
+              </div>
+              <button class="btn-coach-nudge" id="dashCoachNudgeBtn" title="Get Instant Custom Action Advice">⚡ Get Nudge</button>
+            </div>
+          </div>
+
           <!-- Free Study Routine Templates Bar -->
           <div class="free-templates-card">
             <div class="template-header">
@@ -471,6 +510,20 @@
                 <button class="btn-template" onclick="window.studyFlow.applyTemplate('weekend')">🚀 Weekend Project / Backlog Sprint</button>
               </div>
             </div>
+          </div>
+
+          <!-- WhatsApp Channel Banner -->
+          <div style="background: linear-gradient(135deg, #075E54 0%, #25D366 100%); border-radius: 12px; padding: 12px 18px; margin-bottom: 16px; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; color: #ffffff; box-shadow: 0 4px 14px rgba(37,211,102,0.3);">
+            <div style="display: flex; align-items: center; gap: 10px;">
+              <span style="font-size: 1.4rem;">📢</span>
+              <div>
+                <strong style="display: block; font-size: 0.95rem;">Join Official WhatsApp Channel</strong>
+                <span style="font-size: 0.8rem; opacity: 0.9;">Get daily study tips, timetable routines & exam updates!</span>
+              </div>
+            </div>
+            <a href="https://whatsapp.com/channel/0029Vb8Tv1t4Y9lfvnboXm2S" target="_blank" rel="noopener" style="background: #ffffff; color: #075E54; font-weight: 800; font-size: 0.85rem; padding: 8px 16px; border-radius: 50px; text-decoration: none; display: inline-flex; align-items: center; gap: 6px;">
+              <span>Join Now 🚀</span>
+            </a>
           </div>
 
           <!-- Controls Bar: Filter, Search, Sort & Quick Add -->
@@ -896,6 +949,108 @@
                 </div>
               </div>
             </div>
+
+            <!-- Achievements & Badges Card -->
+            <div class="analytics-card full-width">
+              <div class="card-header">
+                <div>
+                  <h3>🏆 Student Achievements & Badges</h3>
+                  <span class="date-sub">Unlock achievements as you complete tasks and maintain streaks</span>
+                </div>
+                <div class="completion-rate-badge" id="badgesCountBadge">0 / 8</div>
+              </div>
+              <div class="badges-grid" id="badgesGrid"></div>
+            </div>
+          </div>
+        </section>
+
+        <!-- ==================== VIEW 9: AI PREDICTOR, WARNINGS & COACH ==================== -->
+        <section class="view-panel" id="view-aiPredictor">
+          <div class="predictor-page-layout">
+            
+            <!-- Top Hero Prediction Banner -->
+            <div class="predictor-hero-card">
+              <div class="predictor-score-col">
+                <div class="readiness-gauge-wrap">
+                  <div class="gauge-circle" id="viewGaugeCircle">
+                    <span class="gauge-value" id="viewReadinessScore">100%</span>
+                    <span class="gauge-label">Exam Readiness</span>
+                  </div>
+                </div>
+              </div>
+              <div class="predictor-details-col">
+                <div class="predictor-header-row">
+                  <h3 class="predictor-status-title" id="viewPredictorStatusTitle">🟢 ON TRACK • Target Safe</h3>
+                  <span class="velocity-pill" id="viewVelocityPill">⚡ Pacing: 0 Tasks / Day</span>
+                </div>
+                <p class="predictor-desc-text" id="viewPredictorDesc">
+                  Based on your current 7-day velocity and pending tasks, your study plan is currently on track.
+                </p>
+                <div class="predictor-stats-mini-row">
+                  <div class="mini-stat">
+                    <span>Est. Days to Finish</span>
+                    <strong id="viewDaysToFinish">0 Days</strong>
+                  </div>
+                  <div class="mini-stat">
+                    <span>Nearest Exam</span>
+                    <strong id="viewNearestExam">No Upcoming Exams</strong>
+                  </div>
+                  <div class="mini-stat">
+                    <span>Required Speed</span>
+                    <strong id="viewReqSpeed">0 Tasks / Day</strong>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Red Alerts & Warning Center -->
+            <div class="predictor-card full-width">
+              <div class="card-header">
+                <div class="title-with-icon">
+                  <span class="card-icon red">🚨</span>
+                  <h3>Active Red Alerts & Warnings</h3>
+                </div>
+                <span class="badge badge-warning" id="viewWarningCountBadge">0 Active Alerts</span>
+              </div>
+              <div class="warnings-detailed-list" id="viewWarningsDetailedList">
+                <div class="empty-warning-msg">✅ No active red alerts! Your study schedule is clean and on track.</div>
+              </div>
+            </div>
+
+            <!-- Motivator AI Coach & Real-Talk Protocol -->
+            <div class="predictor-card full-width motivator-card-bg">
+              <div class="card-header">
+                <div class="title-with-icon">
+                  <span class="card-icon gold">🔥</span>
+                  <h3>Beast Mode Motivator & Action Protocol</h3>
+                </div>
+                <button class="btn-primary" id="viewCoachNudgeBtn" style="font-size: 0.82rem; padding: 6px 14px;">
+                  ⚡ Get Fresh Nudge
+                </button>
+              </div>
+
+              <div class="coach-full-display">
+                <div class="coach-quote-large" id="viewCoachQuoteLarge">
+                  "Ek ghante ka intense focus kal ke 3 ghante ke guilt se hamesha behtar hota hai. Padhai start karo!"
+                </div>
+                <div class="coach-action-steps" id="viewCoachActionSteps">
+                  <div class="action-step-item">🎯 Complete your highest priority pending task in the next Pomodoro session.</div>
+                  <div class="action-step-item">📱 Keep your phone on Do Not Disturb for 45 minutes.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Subject-wise Syllabus Velocity Table -->
+            <div class="predictor-card full-width">
+              <div class="card-header">
+                <h3>Subject-wise Velocity & Risk Analysis</h3>
+                <span class="badge">Performance</span>
+              </div>
+              <div class="subject-velocity-grid" id="viewSubjectVelocityGrid">
+                <!-- Dynamically populated subject velocity bars -->
+              </div>
+            </div>
+
           </div>
         </section>
 
@@ -1175,15 +1330,41 @@
     </div>
   </dialog>
 
+  <!-- ==================== MODAL: SHARE PROGRESS CARD (INSTAGRAM / WHATSAPP STATUS) ==================== -->
+  <dialog class="modal-dialog" id="shareCardModal">
+    <div class="modal-content" style="max-width: 440px; text-align: center;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-wrap">📸</div>
+          <h2>Share Progress Card</h2>
+        </div>
+        <button class="btn-close-modal" id="closeShareCardModalBtn">&times;</button>
+      </div>
+
+      <div style="margin: 12px 0 16px;">
+        <canvas id="shareCanvas" width="540" height="960" style="width: 100%; max-width: 280px; height: auto; border-radius: 16px; border: 1px solid var(--border-card); box-shadow: 0 10px 30px rgba(0,0,0,0.5);"></canvas>
+      </div>
+
+      <div class="modal-footer" style="justify-content: center; gap: 10px; flex-wrap: wrap;">
+        <button type="button" class="btn-primary" id="downloadShareCardBtn">
+          📥 Download Image
+        </button>
+        <button type="button" class="btn-secondary" id="webShareBtn">
+          📲 Share to WhatsApp / IG
+        </button>
+      </div>
+    </div>
+  </dialog>
+
   <!-- ==================== JOIN WHATSAPP CHANNEL FLOATING WIDGET ==================== -->
-  <div class="whatsapp-widget-container">
-    <a href="https://whatsapp.com/channel/0029Vb8Tv1t4Y9lfvnboXm2S" target="_blank" rel="noopener" class="whatsapp-float-btn" title="Join Official WhatsApp Channel for Study Tips">
+  <div class="whatsapp-widget-container" style="position: fixed !important; bottom: 80px !important; right: 14px !important; z-index: 999999 !important; display: block !important;">
+    <a href="https://whatsapp.com/channel/0029Vb8Tv1t4Y9lfvnboXm2S" target="_blank" rel="noopener" class="whatsapp-float-btn" style="display: flex !important; align-items: center !important; justify-content: center !important; gap: 8px !important; background: #25D366 !important; color: #ffffff !important; padding: 10px 14px !important; border-radius: 50px !important; box-shadow: 0 4px 20px rgba(37, 211, 102, 0.6) !important; font-weight: 700 !important; font-size: 0.85rem !important; text-decoration: none !important;" title="Join Official WhatsApp Channel for Study Tips">
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
         <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z" fill="#25D366"/>
         <path d="M16 13.5c-.3 0-1.5-.7-1.7-.8s-.4-.2-.5.1-.6.8-.8 1-.3.2-.6.1c-.3-.2-1.3-.5-2.5-1.6-.9-.8-1.5-1.8-1.7-2.1s0-.4.1-.5l.4-.5c.1-.2.2-.3.3-.5s0-.3 0-.4c-.1-.1-.5-1.3-.7-1.8s-.4-.4-.5-.4h-.4c-.2 0-.5.1-.7.3-.2.3-1 1-1 2.4s1 2.8 1.1 3c.2.2 2 3.1 4.9 4.3.7.3 1.2.5 1.7.6.7.2 1.4.2 1.9.1.6-.1 1.8-.7 2-1.4.3-.7.3-1.3.2-1.4-.1 0-.3-.1-.6-.2z" fill="#FFFFFF"/>
       </svg>
       <span>Join WhatsApp Channel</span>
-      <span class="wa-badge">JOIN</span>
+      <span style="background: #ffffff !important; color: #075E54 !important; padding: 2px 8px !important; border-radius: 12px !important; font-size: 0.75rem !important; font-weight: 800 !important;">JOIN</span>
     </a>
   </div>
 
