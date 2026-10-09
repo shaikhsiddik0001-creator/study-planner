@@ -49,7 +49,12 @@ const STORAGE_KEYS = {
   THEME: 'studyflow_theme_v1',
   STREAK: 'studyflow_streak_v1',
   EXAMS: 'studyflow_exams_v1',
-  NOTES: 'studyflow_notes_v1'
+  NOTES: 'studyflow_notes_v1',
+  BEAST_XP: 'beast_xp_v1',
+  BEAST_LEVEL: 'beast_level_v1',
+  DAILY_GOAL: 'beast_daily_goal_v1',
+  LANG: 'beast_lang_v1',
+  STUDY_LOGS: 'beast_study_logs_v1'
 };
 
 const SUBJECT_COLORS = {
@@ -113,7 +118,14 @@ const state = {
   },
   streakDays: 1,
   theme: 'dark',
-  authMode: 'signin' // 'signin' | 'signup'
+  authMode: 'signin', // 'signin' | 'signup'
+  
+  // Beast Pro Expansion
+  xp: 0,
+  level: 1,
+  dailyGoalHours: 4.0,
+  lang: 'en',
+  studyLogs: {}
 };
 
 // Web Audio Synthesizer
@@ -327,7 +339,37 @@ const dom = {
   resetDataBtn: document.getElementById('resetDataBtn'),
   toastContainer: document.getElementById('toastContainer'),
   confettiCanvas: document.getElementById('confettiCanvas'),
-  installAppBtn: document.getElementById('installAppBtn')
+  installAppBtn: document.getElementById('installAppBtn'),
+  
+  // Beast Pro Upgrade Elements
+  langToggleBtn: document.getElementById('langToggleBtn'),
+  xpLevelWidget: document.getElementById('xpLevelWidget'),
+  levelBadge: document.getElementById('levelBadge'),
+  xpBarFill: document.getElementById('xpBarFill'),
+  xpText: document.getElementById('xpText'),
+  enterBeastFocusBtn: document.getElementById('enterBeastFocusBtn'),
+  loadDemoDataBtn: document.getElementById('loadDemoDataBtn'),
+  dailyGoalRingCircle: document.getElementById('dailyGoalRingCircle'),
+  dailyGoalPercentText: document.getElementById('dailyGoalPercentText'),
+  dailyGoalProgressText: document.getElementById('dailyGoalProgressText'),
+  dailyGoalSubtitle: document.getElementById('dailyGoalSubtitle'),
+  editGoalTargetBtn: document.getElementById('editGoalTargetBtn'),
+  goalStreakText: document.getElementById('goalStreakText'),
+  goalXpText: document.getElementById('goalXpText'),
+  goalRankText: document.getElementById('goalRankText'),
+  studyHeatmapGrid: document.getElementById('studyHeatmapGrid'),
+  shareWhatsAppBtn: document.getElementById('shareWhatsAppBtn'),
+  printTimetableBtn: document.getElementById('printTimetableBtn'),
+  beastFocusModal: document.getElementById('beastFocusModal'),
+  closeBeastFocusBtn: document.getElementById('closeBeastFocusBtn'),
+  focusTaskTitle: document.getElementById('focusTaskTitle'),
+  focusTimerDigits: document.getElementById('focusTimerDigits'),
+  focusTimerStatus: document.getElementById('focusTimerStatus'),
+  focusToggleTimerBtn: document.getElementById('focusToggleTimerBtn'),
+  focusResetTimerBtn: document.getElementById('focusResetTimerBtn'),
+  focusSkipTimerBtn: document.getElementById('focusSkipTimerBtn'),
+  ambientVolumeSlider: document.getElementById('ambientVolumeSlider'),
+  beastQuoteText: document.getElementById('beastQuoteText')
 };
 
 let deferredInstallPrompt = null;
@@ -341,12 +383,17 @@ function init() {
   loadExamsLocal();
   loadNotesLocal();
   loadPomodoroStats();
+  loadBeastGamificationState();
   calculateStreak();
   setupEventListeners();
+  setupBeastProEventListeners();
   updateDateDisplay();
   restoreSeoTitle();
   applyRouteFromHash();
   renderAll();
+  updateXPAndLevelUI();
+  updateDailyGoalRing();
+  renderStudyHeatmap();
   
   if (dom.dynamicStudyTip) {
     dom.dynamicStudyTip.textContent = STUDY_TIPS[Math.floor(Math.random() * STUDY_TIPS.length)];
@@ -661,6 +708,9 @@ function recordPomodoroSession(minutes) {
       saveTasks();
     }
   }
+  
+  logStudyMinutes(minutes);
+  addXP(50, 'Focus Session Completed');
   calculateStreak();
   scheduleCloudSync();
   renderStats();
@@ -1094,9 +1144,8 @@ function toggleTaskComplete(taskId) {
   renderAll();
 
   if (task.completed) {
-    playChimeSound(660, 880);
+    addXP(20, 'Task Completed');
     triggerConfetti();
-    showToast(`Completed: "${task.title}" 🎉`, 'success');
   } else {
     showToast(`Marked as pending: "${task.title}"`, 'info');
   }
@@ -2819,5 +2868,321 @@ window.studyFlow = {
 };
 
 window.beastMode = window.studyFlow;
+
+/* ==========================================================================
+   BEAST MODE PRO GAMIFICATION, PROCEDURAL AUDIO & FOCUS MODE LOGIC
+   ========================================================================== */
+
+function loadBeastGamificationState() {
+  try {
+    state.xp = parseInt(localStorage.getItem(STORAGE_KEYS.BEAST_XP) || '0', 10);
+    state.level = parseInt(localStorage.getItem(STORAGE_KEYS.BEAST_LEVEL) || '1', 10);
+    state.dailyGoalHours = parseFloat(localStorage.getItem(STORAGE_KEYS.DAILY_GOAL) || '4.0');
+    state.lang = localStorage.getItem(STORAGE_KEYS.LANG) || 'en';
+    const logs = localStorage.getItem(STORAGE_KEYS.STUDY_LOGS);
+    state.studyLogs = logs ? JSON.parse(logs) : {};
+  } catch (e) {
+    console.error("Error loading beast gamification state:", e);
+  }
+}
+
+function saveBeastGamificationState() {
+  try {
+    localStorage.setItem(STORAGE_KEYS.BEAST_XP, state.xp.toString());
+    localStorage.setItem(STORAGE_KEYS.BEAST_LEVEL, state.level.toString());
+    localStorage.setItem(STORAGE_KEYS.DAILY_GOAL, state.dailyGoalHours.toString());
+    localStorage.setItem(STORAGE_KEYS.LANG, state.lang);
+    localStorage.setItem(STORAGE_KEYS.STUDY_LOGS, JSON.stringify(state.studyLogs));
+  } catch (e) {
+    console.error("Error saving beast gamification state:", e);
+  }
+}
+
+function addXP(amount, reason) {
+  state.xp += amount;
+  const targetXP = state.level * 100;
+  
+  if (state.xp >= targetXP) {
+    state.level++;
+    state.xp -= targetXP;
+    playSynthChime('levelup');
+    triggerConfetti();
+    showToast(`🎉 LEVEL UP! You are now Level ${state.level} (${getRankTitle(state.level)})! 🔥`, 'success');
+  } else {
+    playSynthChime('complete');
+    if (reason) showToast(`+${amount} XP (${reason})`, 'success');
+  }
+  
+  saveBeastGamificationState();
+  updateXPAndLevelUI();
+}
+
+function getRankTitle(level) {
+  if (level <= 1) return 'Scholar';
+  if (level === 2) return 'Study Warrior';
+  if (level === 3) return 'Focus Knight';
+  if (level === 4) return 'Beast Mode Master';
+  return 'Legendary Overlord';
+}
+
+function updateXPAndLevelUI() {
+  const targetXP = state.level * 100;
+  const percent = Math.min(100, Math.round((state.xp / targetXP) * 100));
+  
+  if (dom.levelBadge) dom.levelBadge.textContent = `Lvl ${state.level}`;
+  if (dom.xpBarFill) dom.xpBarFill.style.width = `${percent}%`;
+  if (dom.xpText) dom.xpText.textContent = `${state.xp} / ${targetXP} XP`;
+  if (dom.goalXpText) dom.goalXpText.textContent = `${state.xp} XP`;
+  if (dom.goalRankText) dom.goalRankText.textContent = getRankTitle(state.level);
+  if (dom.goalStreakText) dom.goalStreakText.textContent = `${state.streakDays} Day${state.streakDays === 1 ? '' : 's'}`;
+}
+
+function logStudyMinutes(mins) {
+  const today = formatDateISO(new Date());
+  state.studyLogs[today] = (state.studyLogs[today] || 0) + mins;
+  saveBeastGamificationState();
+  updateDailyGoalRing();
+  renderStudyHeatmap();
+}
+
+function updateDailyGoalRing() {
+  const today = formatDateISO(new Date());
+  const todayMins = (state.studyLogs[today] || 0) + (state.pomodoro.todayMinutes || 0);
+  const targetMins = state.dailyGoalHours * 60;
+  const percent = Math.min(100, Math.round((todayMins / targetMins) * 100));
+  
+  // Circumference = 2 * PI * 50 = 314
+  const offset = 314 - (314 * (percent / 100));
+  if (dom.dailyGoalRingCircle) dom.dailyGoalRingCircle.style.strokeDashoffset = offset;
+  if (dom.dailyGoalPercentText) dom.dailyGoalPercentText.textContent = `${percent}%`;
+  if (dom.dailyGoalProgressText) dom.dailyGoalProgressText.textContent = `${(todayMins / 60).toFixed(1)} / ${state.dailyGoalHours}h`;
+  if (dom.dailyGoalSubtitle) dom.dailyGoalSubtitle.textContent = `Target: ${state.dailyGoalHours} Hours daily focus`;
+}
+
+function renderStudyHeatmap() {
+  if (!dom.studyHeatmapGrid) return;
+  dom.studyHeatmapGrid.innerHTML = '';
+  
+  const today = new Date();
+  for (let i = 29; i >= 0; i--) {
+    const d = new Date(today);
+    d.setDate(d.getDate() - i);
+    const iso = formatDateISO(d);
+    const mins = state.studyLogs[iso] || 0;
+    
+    let lvlClass = 'lvl-0';
+    if (mins >= 90) lvlClass = 'lvl-3';
+    else if (mins >= 40) lvlClass = 'lvl-2';
+    else if (mins > 0) lvlClass = 'lvl-1';
+    
+    const dayEl = document.createElement('div');
+    dayEl.className = `heatmap-day ${lvlClass}`;
+    dayEl.title = `${iso}: ${mins} mins focus`;
+    dom.studyHeatmapGrid.appendChild(dayEl);
+  }
+}
+
+// Procedural Audio Synthesizer (Web Audio API)
+function playSynthChime(type) {
+  try {
+    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    
+    if (type === 'levelup') {
+      osc.type = 'triangle';
+      osc.frequency.setValueAtTime(440, ctx.currentTime);
+      osc.frequency.exponentialRampToValueAtTime(880, ctx.currentTime + 0.3);
+      gain.gain.setValueAtTime(0.3, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.5);
+    } else {
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(523.25, ctx.currentTime); // C5
+      osc.frequency.setValueAtTime(659.25, ctx.currentTime + 0.1); // E5
+      gain.gain.setValueAtTime(0.2, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+      osc.start();
+      osc.stop(ctx.currentTime + 0.3);
+    }
+  } catch (e) {}
+}
+
+let ambientOscGroup = null;
+
+function setAmbientAudio(type) {
+  if (ambientOscGroup) {
+    try {
+      ambientOscGroup.stop();
+      ambientOscGroup.disconnect();
+    } catch(e) {}
+    ambientOscGroup = null;
+  }
+  
+  if (type === 'none') return;
+  
+  try {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    
+    const vol = parseFloat(dom.ambientVolumeSlider ? dom.ambientVolumeSlider.value : '0.5');
+    
+    if (type === 'binaural') {
+      // 40Hz Gamma Focus Beats (Left: 200Hz, Right: 240Hz)
+      const oscL = audioCtx.createOscillator();
+      const oscR = audioCtx.createOscillator();
+      const merger = audioCtx.createChannelMerger(2);
+      const gain = audioCtx.createGain();
+      
+      oscL.frequency.value = 200;
+      oscR.frequency.value = 240;
+      
+      oscL.connect(merger, 0, 0);
+      oscR.connect(merger, 0, 1);
+      merger.connect(gain);
+      gain.connect(audioCtx.destination);
+      gain.gain.value = vol * 0.25;
+      
+      oscL.start();
+      oscR.start();
+      ambientOscGroup = { stop: () => { oscL.stop(); oscR.stop(); }, disconnect: () => gain.disconnect() };
+    } else {
+      // Procedural Noise Generator for Rain / Ocean / White Noise
+      const bufferSize = audioCtx.sampleRate * 2;
+      const noiseBuffer = audioCtx.createBuffer(1, bufferSize, audioCtx.sampleRate);
+      const output = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < bufferSize; i++) {
+        output[i] = Math.random() * 2 - 1;
+      }
+      
+      const whiteNoise = audioCtx.createBufferSource();
+      whiteNoise.buffer = noiseBuffer;
+      whiteNoise.loop = true;
+      
+      const filter = audioCtx.createBiquadFilter();
+      filter.type = type === 'rain' ? 'lowpass' : 'bandpass';
+      filter.frequency.value = type === 'rain' ? 800 : 400;
+      
+      const gain = audioCtx.createGain();
+      gain.gain.value = vol * 0.15;
+      
+      whiteNoise.connect(filter);
+      filter.connect(gain);
+      gain.connect(audioCtx.destination);
+      
+      whiteNoise.start();
+      ambientOscGroup = whiteNoise;
+    }
+    showToast(`Playing ${type} ambient focus audio 🎧`, 'info');
+  } catch (e) {
+    console.error("Ambient audio error:", e);
+  }
+}
+
+function shareScheduleToWhatsApp() {
+  const todayStr = formatDateISO(new Date());
+  const todayTasks = state.tasks.filter(t => t.date === todayStr || !t.date);
+  
+  let msg = `🔥 *BEAST MODE STUDY PLANNER* 🔥\n`;
+  msg += `📅 Date: ${new Date().toLocaleDateString('en-IN', { weekday: 'short', month: 'short', day: 'numeric' })}\n`;
+  msg += `🔥 Streak: ${state.streakDays} Days | Rank: ${getRankTitle(state.level)}\n\n`;
+  msg += `📋 *Today's Focus Tasks:*\n`;
+  
+  if (todayTasks.length === 0) {
+    msg += `• No tasks scheduled. Time to add new study targets!\n`;
+  } else {
+    todayTasks.forEach((t, i) => {
+      msg += `${i + 1}. [${t.completed ? '✅' : '⏳'}] ${t.title} (${t.subject || 'General'})\n`;
+    });
+  }
+  
+  msg += `\n🚀 Make your free study timetable on Beast Mode Planner: https://shaikhsiddik0001-creator.github.io/study-planner/`;
+  
+  window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(msg)}`, '_blank');
+}
+
+function loadDemoData() {
+  const today = formatDateISO(new Date());
+  const sampleTasks = [
+    { id: 'demo-1', title: 'Physics Chapter 4: Electrostatics Numericals', subject: 'Physics', priority: 'high', date: today, time: '10:00', completed: false, pomoEstimate: 3, notes: 'Focus on Coulomb law formulas' },
+    { id: 'demo-2', title: 'Mathematics JEE Mock Test - 20 Questions', subject: 'Mathematics', priority: 'high', date: today, time: '14:00', completed: false, pomoEstimate: 4, notes: 'Integration & Calculus section' },
+    { id: 'demo-3', title: 'Organic Chemistry Reactions Revision', subject: 'Chemistry', priority: 'medium', date: today, time: '17:00', completed: true, pomoEstimate: 2, notes: 'Aldehydes & Ketones mechanism' },
+    { id: 'demo-4', title: 'Computer Science Data Structures Practice', subject: 'Computer Science', priority: 'low', date: today, time: '19:00', completed: false, pomoEstimate: 2, notes: 'Trees and Graphs traversals' }
+  ];
+  
+  state.tasks = [...sampleTasks, ...state.tasks];
+  saveTasksLocal();
+  renderAll();
+  addXP(50, 'Demo Loaded');
+  showToast('⚡ Live Demo Schedule Loaded! Explore tasks and Pomodoro focus.', 'success');
+}
+
+function toggleLanguage() {
+  state.lang = state.lang === 'en' ? 'hi' : 'en';
+  saveBeastGamificationState();
+  
+  if (state.lang === 'hi') {
+    if (dom.pageHeading) dom.pageHeading.textContent = 'सभी स्टडी टास्क (Study Tasks)';
+    if (dom.pageSubHeading) dom.pageSubHeading.textContent = 'अपनी पढ़ाई का शेड्यूल और टाइमटेबल मैनेज करें';
+    if (dom.langToggleBtn) dom.langToggleBtn.innerHTML = '<span>🌐 हिंदी / Eng</span>';
+    showToast('भाषा बदलकर हिंदी / Hinglish कर दी गई है! 🇮🇳', 'info');
+  } else {
+    if (dom.pageHeading) dom.pageHeading.textContent = 'All Study Tasks';
+    if (dom.pageSubHeading) dom.pageSubHeading.textContent = 'Manage and track your active study sessions';
+    if (dom.langToggleBtn) dom.langToggleBtn.innerHTML = '<span>🌐 Eng / हिंदी</span>';
+    showToast('Language set to English 🌐', 'info');
+  }
+}
+
+function setupBeastProEventListeners() {
+  if (dom.langToggleBtn) dom.langToggleBtn.addEventListener('click', toggleLanguage);
+  if (dom.loadDemoDataBtn) dom.loadDemoDataBtn.addEventListener('click', loadDemoData);
+  if (dom.shareWhatsAppBtn) dom.shareWhatsAppBtn.addEventListener('click', shareScheduleToWhatsApp);
+  if (dom.printTimetableBtn) dom.printTimetableBtn.addEventListener('click', () => window.print());
+  
+  if (dom.editGoalTargetBtn) {
+    dom.editGoalTargetBtn.addEventListener('click', () => {
+      const val = prompt('Daily Focus Target (Hours):', state.dailyGoalHours.toString());
+      if (val && !isNaN(val)) {
+        state.dailyGoalHours = Math.max(0.5, parseFloat(val));
+        saveBeastGamificationState();
+        updateDailyGoalRing();
+        showToast(`Daily Goal set to ${state.dailyGoalHours} hours! 🎯`, 'success');
+      }
+    });
+  }
+
+  // Beast Focus Modal Triggers
+  if (dom.enterBeastFocusBtn) {
+    dom.enterBeastFocusBtn.addEventListener('click', () => {
+      if (dom.beastFocusModal) {
+        if (dom.beastFocusModal.showModal) dom.beastFocusModal.showModal();
+        else dom.beastFocusModal.classList.remove('hidden');
+      }
+    });
+  }
+
+  if (dom.closeBeastFocusBtn) {
+    dom.closeBeastFocusBtn.addEventListener('click', () => {
+      if (dom.beastFocusModal) {
+        if (dom.beastFocusModal.close) dom.beastFocusModal.close();
+        else dom.beastFocusModal.classList.add('hidden');
+      }
+    });
+  }
+
+  // Ambient sound buttons
+  const ambientBtns = document.querySelectorAll('.ambient-sound-btn');
+  ambientBtns.forEach(btn => {
+    btn.addEventListener('click', () => {
+      ambientBtns.forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      setAmbientAudio(btn.dataset.sound);
+    });
+  });
+}
 
 document.addEventListener('DOMContentLoaded', init);
