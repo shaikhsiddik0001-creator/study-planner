@@ -47,6 +47,7 @@ const STORAGE_KEYS = {
   SETTINGS: 'studyflow_settings_v1',
   POMO_STATS: 'studyflow_pomo_stats_v1',
   THEME: 'studyflow_theme_v1',
+  DARK_VARIANT: 'studyflow_dark_variant_v1',
   STREAK: 'studyflow_streak_v1',
   EXAMS: 'studyflow_exams_v1',
   NOTES: 'studyflow_notes_v1',
@@ -119,6 +120,7 @@ const state = {
   },
   streakDays: 1,
   theme: 'dark',
+  darkVariant: 'dark',
   authMode: 'signin', // 'signin' | 'signup'
   
   // Beast Pro Expansion
@@ -146,6 +148,12 @@ const dom = {
   mobileMenuBtn: document.getElementById('mobileMenuBtn'),
   closeSidebarBtn: document.getElementById('closeSidebarBtn'),
   themeToggleBtn: document.getElementById('themeToggleBtn'),
+  themePalettePicker: document.getElementById('themePalettePicker'),
+  themePaletteBtn: document.getElementById('themePaletteBtn'),
+  themePaletteDropdown: document.getElementById('themePaletteDropdown'),
+  themeActiveDot: document.getElementById('themeActiveDot'),
+  themeActiveName: document.getElementById('themeActiveName'),
+  themeOptionItems: document.querySelectorAll('.theme-option-item'),
   pageHeading: document.getElementById('pageHeading'),
   pageSubHeading: document.getElementById('pageSubHeading'),
   currentDateStr: document.getElementById('currentDateStr'),
@@ -705,6 +713,7 @@ function saveNotesLocalOnly() {
 }
 
 function loadSettings() {
+  state.darkVariant = localStorage.getItem(STORAGE_KEYS.DARK_VARIANT) || 'dark';
   const savedTheme = localStorage.getItem(STORAGE_KEYS.THEME) || 'dark';
   setTheme(savedTheme);
 
@@ -961,16 +970,53 @@ function closeMobileSidebar() {
   dom.sidebarBackdrop.classList.remove('active');
 }
 
+const THEME_PALETTES = {
+  dark: { name: 'Cyber Neon', color: '#8b5cf6' },
+  cyber: { name: 'Cyber Neon', color: '#8b5cf6' },
+  emerald: { name: 'Aurora Matrix', color: '#10b981' },
+  crimson: { name: 'Crimson Fire', color: '#f97316' },
+  velvet: { name: 'Royal Velvet', color: '#d946ef' },
+  light: { name: 'Frost Light', color: '#6366f1' }
+};
+
 function setTheme(theme) {
   state.theme = theme;
+  if (theme !== 'light') {
+    state.darkVariant = theme;
+    localStorage.setItem(STORAGE_KEYS.DARK_VARIANT, theme);
+  }
   dom.html.setAttribute('data-theme', theme);
   localStorage.setItem(STORAGE_KEYS.THEME, theme);
+
+  const info = THEME_PALETTES[theme] || THEME_PALETTES.dark;
+  if (dom.themeActiveName) dom.themeActiveName.textContent = info.name;
+  if (dom.themeActiveDot) {
+    dom.themeActiveDot.style.background = info.color;
+    dom.themeActiveDot.style.boxShadow = `0 0 10px ${info.color}`;
+  }
+
+  const activeDark = theme === 'light' ? (state.darkVariant || 'dark') : theme;
+  if (dom.themeOptionItems) {
+    dom.themeOptionItems.forEach(item => {
+      const val = item.getAttribute('data-theme-val');
+      if (val === activeDark) {
+        item.classList.add('active');
+      } else {
+        item.classList.remove('active');
+      }
+    });
+  }
 }
 
 function toggleTheme() {
-  const nextTheme = state.theme === 'dark' ? 'light' : 'dark';
-  setTheme(nextTheme);
-  showToast(`Switched to ${nextTheme} mode`, 'info');
+  if (state.theme === 'light') {
+    const targetDark = state.darkVariant || 'dark';
+    setTheme(targetDark);
+    showToast(`Switched to ${THEME_PALETTES[targetDark]?.name || 'Cyber Neon'} theme ⚡`, 'info');
+  } else {
+    setTheme('light');
+    showToast('Switched to Frost Light mode ☀️', 'info');
+  }
 }
 
 // ==========================================
@@ -2338,6 +2384,34 @@ function setupEventListeners() {
   if (dom.closeSidebarBtn) dom.closeSidebarBtn.addEventListener('click', closeMobileSidebar);
   if (dom.sidebarBackdrop) dom.sidebarBackdrop.addEventListener('click', closeMobileSidebar);
   if (dom.themeToggleBtn) dom.themeToggleBtn.addEventListener('click', toggleTheme);
+
+  // Aesthetic Theme Palette Switcher listeners
+  if (dom.themePaletteBtn && dom.themePaletteDropdown) {
+    dom.themePaletteBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dom.themePaletteDropdown.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', (e) => {
+      if (dom.themePalettePicker && !dom.themePalettePicker.contains(e.target)) {
+        dom.themePaletteDropdown.classList.add('hidden');
+      }
+    });
+
+    if (dom.themeOptionItems) {
+      dom.themeOptionItems.forEach(item => {
+        item.addEventListener('click', (e) => {
+          e.stopPropagation();
+          const val = item.getAttribute('data-theme-val') || 'dark';
+          const name = item.getAttribute('data-theme-name') || 'Cyber Neon';
+          setTheme(val);
+          dom.themePaletteDropdown.classList.add('hidden');
+          playSynthChime('save');
+          showToast(`⚡ Aesthetic theme changed to ${name}!`, 'success');
+        });
+      });
+    }
+  }
 
   // Predictor & Coach Buttons
   if (dom.jumpToAiPredictorBtn) {
