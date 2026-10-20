@@ -435,6 +435,49 @@
             </div>
           </div>
 
+          <!-- Aesthetic Theme Palette Switcher -->
+          <div class="theme-palette-picker" id="themePalettePicker">
+            <button class="theme-palette-btn" id="themePaletteBtn" aria-label="Select Aesthetic Theme" title="Choose Aesthetic Theme">
+              <span class="theme-active-dot" id="themeActiveDot"></span>
+              <span class="theme-active-name" id="themeActiveName">Cyber Neon</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            <div class="theme-palette-dropdown hidden" id="themePaletteDropdown">
+              <div class="theme-dropdown-header">
+                <span>Aesthetic Theme</span>
+                <span style="font-size: 0.65rem; color: var(--brand-primary); font-weight: 700;">PRO</span>
+              </div>
+              <button type="button" class="theme-option-item active" data-theme-val="dark" data-theme-name="Cyber Neon">
+                <span class="theme-swatch swatch-cyber"></span>
+                <div class="theme-option-text">
+                  <strong>Cyber Neon</strong>
+                  <small>Obsidian + Violet & Cyan Glow</small>
+                </div>
+              </button>
+              <button type="button" class="theme-option-item" data-theme-val="emerald" data-theme-name="Aurora Matrix">
+                <span class="theme-swatch swatch-emerald"></span>
+                <div class="theme-option-text">
+                  <strong>Aurora Matrix</strong>
+                  <small>Deep Abyss + Mint & Teal</small>
+                </div>
+              </button>
+              <button type="button" class="theme-option-item" data-theme-val="crimson" data-theme-name="Crimson Fire">
+                <span class="theme-swatch swatch-crimson"></span>
+                <div class="theme-option-text">
+                  <strong>Crimson Fire</strong>
+                  <small>Pitch Dark + Molten Flame</small>
+                </div>
+              </button>
+              <button type="button" class="theme-option-item" data-theme-val="velvet" data-theme-name="Royal Velvet">
+                <span class="theme-swatch swatch-velvet"></span>
+                <div class="theme-option-text">
+                  <strong>Royal Velvet</strong>
+                  <small>Midnight + Magenta Glow</small>
+                </div>
+              </button>
+            </div>
+          </div>
+
           <!-- Dark / Light Theme Toggle -->
           <button class="theme-toggle-btn" id="themeToggleBtn" aria-label="Toggle Theme Mode" title="Toggle Light/Dark Theme">
             <div class="theme-icon-sun">
