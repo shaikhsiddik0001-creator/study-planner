@@ -187,6 +187,13 @@
           <span>New Study Task</span>
           <kbd>Ctrl+N</kbd>
         </button>
+
+        <!-- Syllabus Splitter Quick Action -->
+        <button class="btn-syllabus-splitter btn-block" id="sidebarSplitterBtn" style="margin-top: 8px;">
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+          <span>Syllabus Splitter</span>
+          <span class="badge-mini-glow">AUTO</span>
+        </button>
       </div>
 
       <!-- Navigation Links -->
@@ -239,6 +246,17 @@
         </button>
 
         <span class="nav-category">FOCUS & STUDENT TOOLS</span>
+        <button class="nav-item" data-view="spacedRevision" id="navSpacedRevision">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/>
+            <path d="M3 3v5h5"/>
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/>
+            <path d="M16 21h5v-5"/>
+          </svg>
+          <span>Spaced Revision & Cards</span>
+          <span class="nav-counter" id="navSpacedDueCount">0 Due</span>
+        </button>
+
         <button class="nav-item" data-view="pomodoro" id="navPomodoro">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <circle cx="12" cy="13" r="8"></circle>
@@ -1152,6 +1170,95 @@
           </div>
         </section>
 
+        <!-- ==================== VIEW 10: SPACED REPETITION & FLASHCARD DECK ==================== -->
+        <section class="view-panel" id="view-spacedRevision">
+          <div class="spaced-header-card">
+            <div class="spaced-header-left">
+              <div class="spaced-icon-badge">🧠</div>
+              <div>
+                <h2>Scientific Spaced Repetition & Flashcards</h2>
+                <p class="date-sub">Ebbinghaus Forgetting Curve Protocol (+1d, +3d, +7d, +14d). Review concepts before your brain forgets them.</p>
+              </div>
+            </div>
+            <div class="spaced-header-actions">
+              <button class="btn-primary" id="openNewFlashcardModalBtn">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                <span>+ Add Flashcard</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Revision Status Summary Strip -->
+          <div class="spaced-status-strip">
+            <div class="status-pill active-due">
+              <span class="pill-dot"></span>
+              <span id="spacedDueCountText">0 Cards Due for Review Today</span>
+            </div>
+            <div class="status-pill mastered">
+              <span>🏆 <strong id="spacedMasteredCount">0</strong> Mastered Concepts</span>
+            </div>
+            <div class="status-pill total">
+              <span>📚 <strong id="spacedTotalCount">0</strong> Total Deck Cards</span>
+            </div>
+          </div>
+
+          <!-- Active Flashcard Reviewer (Interactive 3D Flip Card) -->
+          <div class="active-flashcard-stage" id="activeFlashcardStage">
+            <div class="stage-card-indicator">
+              <span id="currentCardIndicator">Card 1 of 1</span>
+              <span class="card-subject-tag" id="activeCardSubject">General</span>
+            </div>
+
+            <div class="study-flashcard" id="activeStudyFlashcard">
+              <div class="flashcard-inner">
+                <div class="flashcard-face flashcard-front">
+                  <span class="face-label">QUESTION / CONCEPT (CLICK TO FLIP) 🔄</span>
+                  <h3 class="card-prompt-text" id="activeCardFront">What is Newton's Second Law of Motion?</h3>
+                  <span class="flip-hint-pill">Tap card to reveal answer</span>
+                </div>
+                <div class="flashcard-face flashcard-back">
+                  <span class="face-label">ANSWER / FORMULA / DERIVATION</span>
+                  <div class="card-answer-text" id="activeCardBack">F = m · a (Force equals mass times acceleration). Rate of change of momentum is proportional to applied force.</div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Rating Feedback Actions -->
+            <div class="flashcard-actions-bar">
+              <button class="btn-srs-rating hard" id="srsRatingHardBtn" title="Review again tomorrow (+1 day)">
+                <span class="rating-emoji">🔴</span>
+                <span class="rating-title">Hard / Forgot</span>
+                <span class="rating-sub">+1 Day</span>
+              </button>
+              <button class="btn-srs-rating good" id="srsRatingGoodBtn" title="Review in 3 to 7 days">
+                <span class="rating-emoji">🟡</span>
+                <span class="rating-title">Good / Recalled</span>
+                <span class="rating-sub">+3 Days</span>
+              </button>
+              <button class="btn-srs-rating easy" id="srsRatingEasyBtn" title="Mastered! Review in 14 to 30 days">
+                <span class="rating-emoji">🟢</span>
+                <span class="rating-title">Easy / Mastered</span>
+                <span class="rating-sub">+14 Days (+10 XP)</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- All Cards Deck Grid / Manager -->
+          <div class="deck-list-section">
+            <div class="section-title-row">
+              <h3>📚 Concept & Formula Flashcards Deck</h3>
+              <div class="deck-filter-wrap">
+                <select id="flashcardSubjectFilter" class="select-dropdown">
+                  <option value="all">All Subjects</option>
+                </select>
+              </div>
+            </div>
+            <div class="flashcard-mini-grid" id="flashcardMiniGrid">
+              <!-- Dynamically populated cards -->
+            </div>
+          </div>
+        </section>
+
         <!-- ==================== SEO LANDING + FAQ (visible to Google) ==================== -->
         <section class="seo-landing" id="aboutBeastMode" aria-labelledby="aboutHeading">
           <article class="seo-card">
@@ -1376,9 +1483,14 @@
           </div>
         </div>
 
-        <div class="form-group">
-          <label for="taskNotesInput">Notes / Syllabus Reference (Optional)</label>
-          <textarea id="taskNotesInput" rows="3" placeholder="Chapter pages, formulas, specific questions..."></textarea>
+        <div class="form-group checkbox-group" style="background: rgba(99, 102, 241, 0.08); padding: 10px 14px; border-radius: var(--radius-md); border: 1px dashed rgba(99, 102, 241, 0.3);">
+          <label style="display: flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer;">
+            <input type="checkbox" id="taskSpacedRevisionCheck" style="width: 18px; height: 18px; accent-color: var(--brand-primary);">
+            <span>🔁 Enable Scientific Spaced Revision (+1d, +3d, +7d)</span>
+          </label>
+          <p style="font-size: 0.75rem; color: var(--text-muted); margin-top: 4px; margin-left: 26px;">
+            When marked completed, auto-creates quick review sessions on day 1, 3, and 7 to prevent memory loss.
+          </p>
         </div>
 
         <div class="modal-footer">
@@ -1508,6 +1620,127 @@
           <p id="beastQuoteText">"Discipline is choosing between what you want now and what you want most."</p>
         </div>
       </div>
+    </div>
+  </dialog>
+
+  <!-- ==================== MODAL: SYLLABUS-TO-TIMETABLE SPLITTER ==================== -->
+  <dialog class="modal-dialog splitter-modal" id="syllabusSplitterModal">
+    <div class="modal-content" style="max-width: 680px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-wrap" style="background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); color: #fff;">⚡</div>
+          <div>
+            <h2>Smart Syllabus-to-Timetable Splitter</h2>
+            <p class="date-sub">Divide any syllabus or chapter list automatically into a balanced daily schedule with mock revision buffers.</p>
+          </div>
+        </div>
+        <button class="btn-close-modal" id="closeSyllabusModalBtn">&times;</button>
+      </div>
+
+      <form id="syllabusSplitterForm" class="modal-form">
+        <div class="form-row-2">
+          <div class="form-group">
+            <label for="splitterSubjectInput">Subject Name <span class="required">*</span></label>
+            <input type="text" id="splitterSubjectInput" placeholder="e.g. Physics, Mathematics, Chemistry" required>
+          </div>
+          <div class="form-group">
+            <label for="splitterTargetDateInput">Target Exam / Completion Date <span class="required">*</span></label>
+            <input type="date" id="splitterTargetDateInput" required>
+          </div>
+        </div>
+
+        <div class="form-group">
+          <label for="splitterChaptersInput">
+            Chapter Names / Topics (One per line) <span class="required">*</span>
+            <span style="font-weight: 400; color: var(--text-muted); font-size: 0.8rem;">(Or just type chapter titles)</span>
+          </label>
+          <textarea id="splitterChaptersInput" rows="5" placeholder="Electrostatics&#10;Current Electricity&#10;Magnetic Effects of Current&#10;Electromagnetic Induction&#10;Optics&#10;Modern Physics" required style="font-family: var(--font-mono); font-size: 0.88rem;"></textarea>
+        </div>
+
+        <div class="form-row-3">
+          <div class="form-group">
+            <label for="splitterDailyPomoInput">Daily Focus Blocks</label>
+            <select id="splitterDailyPomoInput" class="select-dropdown">
+              <option value="2">2 Pomodoros (~50 mins)</option>
+              <option value="3" selected>3 Pomodoros (~1.5 Hours)</option>
+              <option value="4">4 Pomodoros (~2 Hours)</option>
+              <option value="6">6 Pomodoros (~3 Hours)</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label for="splitterPriorityInput">Priority</label>
+            <select id="splitterPriorityInput" class="select-dropdown">
+              <option value="high" selected>🔥 High Priority</option>
+              <option value="medium">⚡ Medium Priority</option>
+            </select>
+          </div>
+          <div class="form-group" style="display: flex; flex-direction: column; justify-content: flex-end;">
+            <label style="display: flex; align-items: center; gap: 8px; font-size: 0.85rem; font-weight: 700; cursor: pointer; padding-bottom: 8px;">
+              <input type="checkbox" id="splitterBufferCheck" checked style="width: 18px; height: 18px; accent-color: var(--brand-primary);">
+              <span>Include Buffer / Mock Days</span>
+            </label>
+          </div>
+        </div>
+
+        <div style="display: flex; gap: 10px; margin-top: 6px;">
+          <button type="button" class="btn-primary" id="generateSplitterPreviewBtn" style="background: var(--brand-gradient); flex: 1;">
+            ⚡ Calculate & Preview Schedule
+          </button>
+        </div>
+
+        <!-- Live Generated Schedule Preview Container -->
+        <div class="splitter-preview-wrap hidden" id="splitterPreviewWrap" style="margin-top: 16px;">
+          <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px;">
+            <h4 style="font-size: 0.9rem; font-weight: 800; color: var(--text-main);">📅 Generated Study Schedule:</h4>
+            <span class="badge" id="splitterTotalTasksBadge" style="background: rgba(99,102,241,0.2); color: var(--brand-primary); font-weight: 800;">0 Tasks Generated</span>
+          </div>
+          <div class="splitter-preview-table-box" id="splitterPreviewTableBox" style="max-height: 220px; overflow-y: auto; border: 1px solid var(--border-card); border-radius: var(--radius-md); background: var(--bg-input);">
+            <!-- Injected preview items -->
+          </div>
+        </div>
+
+        <div class="modal-footer" style="margin-top: 18px;">
+          <button type="button" class="btn-secondary" id="cancelSyllabusModalBtn">Cancel</button>
+          <button type="button" class="btn-primary hidden" id="confirmImportScheduleBtn" style="background: linear-gradient(135deg, #10b981 0%, #059669 100%);">
+            🚀 Add All to My Schedule (+100 XP)
+          </button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- ==================== MODAL: ADD / EDIT FLASHCARD ==================== -->
+  <dialog class="modal-dialog" id="flashcardModal">
+    <div class="modal-content" style="max-width: 500px;">
+      <div class="modal-header">
+        <div class="modal-title-group">
+          <div class="modal-icon-wrap" style="background: rgba(99,102,241,0.2); color: var(--brand-primary);">🧠</div>
+          <h2>Create Study Flashcard</h2>
+        </div>
+        <button class="btn-close-modal" id="closeFlashcardModalBtn">&times;</button>
+      </div>
+
+      <form id="flashcardForm" class="modal-form">
+        <div class="form-group">
+          <label for="fcSubjectInput">Subject <span class="required">*</span></label>
+          <input type="text" id="fcSubjectInput" placeholder="e.g. Physics, Organic Chemistry, Calculus" required>
+        </div>
+
+        <div class="form-group">
+          <label for="fcFrontInput">Front: Question / Concept / Formula Name <span class="required">*</span></label>
+          <textarea id="fcFrontInput" rows="2" placeholder="e.g. State Ohm's Law and Formula" required></textarea>
+        </div>
+
+        <div class="form-group">
+          <label for="fcBackInput">Back: Answer / Solution / Key Derivation <span class="required">*</span></label>
+          <textarea id="fcBackInput" rows="3" placeholder="e.g. V = I · R. Current through conductor between two points is directly proportional to voltage..." required></textarea>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn-secondary" id="cancelFlashcardModalBtn">Cancel</button>
+          <button type="submit" class="btn-primary">Save Flashcard</button>
+        </div>
+      </form>
     </div>
   </dialog>
 
