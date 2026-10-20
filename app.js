@@ -54,7 +54,8 @@ const STORAGE_KEYS = {
   BEAST_LEVEL: 'beast_level_v1',
   DAILY_GOAL: 'beast_daily_goal_v1',
   LANG: 'beast_lang_v1',
-  STUDY_LOGS: 'beast_study_logs_v1'
+  STUDY_LOGS: 'beast_study_logs_v1',
+  FLASHCARDS: 'beast_flashcards_v1'
 };
 
 const SUBJECT_COLORS = {
@@ -81,7 +82,7 @@ const STUDY_TIPS = [
 ];
 
 const SEO_DOCUMENT_TITLE = 'Beast Mode Study Planner – Free Daily Schedule & Pomodoro Timer for Students';
-const VALID_VIEWS = ['dashboard', 'daily', 'weekly', 'monthly', 'pomodoro', 'examCountdown', 'quickNotes', 'analytics', 'aiPredictor'];
+const VALID_VIEWS = ['dashboard', 'daily', 'weekly', 'monthly', 'pomodoro', 'examCountdown', 'quickNotes', 'analytics', 'aiPredictor', 'spacedRevision'];
 
 let cloudSyncTimer = null;
 let notesSaveTimer = null;
@@ -125,7 +126,12 @@ const state = {
   level: 1,
   dailyGoalHours: 4.0,
   lang: 'en',
-  studyLogs: {}
+  studyLogs: {},
+
+  // Spaced Repetition & Splitter state
+  flashcards: [],
+  currentFlashcardIndex: 0,
+  generatedSplitterTasks: []
 };
 
 // Web Audio Synthesizer
@@ -369,7 +375,55 @@ const dom = {
   focusResetTimerBtn: document.getElementById('focusResetTimerBtn'),
   focusSkipTimerBtn: document.getElementById('focusSkipTimerBtn'),
   ambientVolumeSlider: document.getElementById('ambientVolumeSlider'),
-  beastQuoteText: document.getElementById('beastQuoteText')
+  beastQuoteText: document.getElementById('beastQuoteText'),
+
+  // Spaced Repetition & Splitter Elements
+  sidebarSplitterBtn: document.getElementById('sidebarSplitterBtn'),
+  navSpacedRevision: document.getElementById('navSpacedRevision'),
+  navSpacedDueCount: document.getElementById('navSpacedDueCount'),
+  taskSpacedRevisionCheck: document.getElementById('taskSpacedRevisionCheck'),
+  
+  // Spaced Repetition View
+  spacedDueCountText: document.getElementById('spacedDueCountText'),
+  spacedMasteredCount: document.getElementById('spacedMasteredCount'),
+  spacedTotalCount: document.getElementById('spacedTotalCount'),
+  openNewFlashcardModalBtn: document.getElementById('openNewFlashcardModalBtn'),
+  currentCardIndicator: document.getElementById('currentCardIndicator'),
+  activeCardSubject: document.getElementById('activeCardSubject'),
+  activeStudyFlashcard: document.getElementById('activeStudyFlashcard'),
+  activeCardFront: document.getElementById('activeCardFront'),
+  activeCardBack: document.getElementById('activeCardBack'),
+  srsRatingHardBtn: document.getElementById('srsRatingHardBtn'),
+  srsRatingGoodBtn: document.getElementById('srsRatingGoodBtn'),
+  srsRatingEasyBtn: document.getElementById('srsRatingEasyBtn'),
+  flashcardSubjectFilter: document.getElementById('flashcardSubjectFilter'),
+  flashcardMiniGrid: document.getElementById('flashcardMiniGrid'),
+
+  // Syllabus Splitter Modal
+  syllabusSplitterModal: document.getElementById('syllabusSplitterModal'),
+  closeSyllabusModalBtn: document.getElementById('closeSyllabusModalBtn'),
+  cancelSyllabusModalBtn: document.getElementById('cancelSyllabusModalBtn'),
+  syllabusSplitterForm: document.getElementById('syllabusSplitterForm'),
+  splitterSubjectInput: document.getElementById('splitterSubjectInput'),
+  splitterTargetDateInput: document.getElementById('splitterTargetDateInput'),
+  splitterChaptersInput: document.getElementById('splitterChaptersInput'),
+  splitterDailyPomoInput: document.getElementById('splitterDailyPomoInput'),
+  splitterPriorityInput: document.getElementById('splitterPriorityInput'),
+  splitterBufferCheck: document.getElementById('splitterBufferCheck'),
+  generateSplitterPreviewBtn: document.getElementById('generateSplitterPreviewBtn'),
+  splitterPreviewWrap: document.getElementById('splitterPreviewWrap'),
+  splitterTotalTasksBadge: document.getElementById('splitterTotalTasksBadge'),
+  splitterPreviewTableBox: document.getElementById('splitterPreviewTableBox'),
+  confirmImportScheduleBtn: document.getElementById('confirmImportScheduleBtn'),
+
+  // Flashcard Modal
+  flashcardModal: document.getElementById('flashcardModal'),
+  closeFlashcardModalBtn: document.getElementById('closeFlashcardModalBtn'),
+  cancelFlashcardModalBtn: document.getElementById('cancelFlashcardModalBtn'),
+  flashcardForm: document.getElementById('flashcardForm'),
+  fcSubjectInput: document.getElementById('fcSubjectInput'),
+  fcFrontInput: document.getElementById('fcFrontInput'),
+  fcBackInput: document.getElementById('fcBackInput')
 };
 
 let deferredInstallPrompt = null;
@@ -382,11 +436,13 @@ function init() {
   loadTasksLocal();
   loadExamsLocal();
   loadNotesLocal();
+  loadFlashcardsLocal();
   loadPomodoroStats();
   loadBeastGamificationState();
   calculateStreak();
   setupEventListeners();
   setupBeastProEventListeners();
+  setupSyllabusAndSpacedEventListeners();
   updateDateDisplay();
   restoreSeoTitle();
   applyRouteFromHash();
@@ -394,6 +450,7 @@ function init() {
   updateXPAndLevelUI();
   updateDailyGoalRing();
   renderStudyHeatmap();
+  updateSpacedRevisionCounters();
   
   if (dom.dynamicStudyTip) {
     dom.dynamicStudyTip.textContent = STUDY_TIPS[Math.floor(Math.random() * STUDY_TIPS.length)];
@@ -874,7 +931,8 @@ function switchView(viewName, options = {}) {
     examCountdown: { title: 'Exam Countdown Tracker', sub: 'Stay prepared with target days remaining' },
     quickNotes: { title: 'Study Notes & Formulas', sub: 'Your instant scratchpad for key notes and equations' },
     analytics: { title: 'Study Analytics', sub: 'Track completion metrics, subject balance, and streak' },
-    aiPredictor: { title: 'AI Predictor & Coach', sub: 'Exam readiness score, danger warnings, and motivational protocol' }
+    aiPredictor: { title: 'AI Predictor & Coach', sub: 'Exam readiness score, danger warnings, and motivational protocol' },
+    spacedRevision: { title: 'Spaced Repetition & Flashcards', sub: 'Ebbinghaus forgetting curve review deck and active recall practice' }
   };
 
   if (titles[viewName]) {
@@ -1057,6 +1115,7 @@ function openCreateTaskModal(defaultDate = null, defaultTime = null) {
   if (defaultTime) dom.taskTimeInput.value = defaultTime;
   
   dom.taskPomoEstimate.value = 2;
+  if (dom.taskSpacedRevisionCheck) dom.taskSpacedRevisionCheck.checked = false;
   updatePomoCalcHint();
   if (dom.taskModal.showModal) dom.taskModal.showModal();
   else dom.taskModal.classList.remove('hidden');
@@ -1076,6 +1135,7 @@ function openEditTaskModal(taskId) {
   dom.taskDurationInput.value = task.duration || 45;
   dom.taskPomoEstimate.value = task.pomodorosEstimated || 2;
   dom.taskNotesInput.value = task.notes || '';
+  if (dom.taskSpacedRevisionCheck) dom.taskSpacedRevisionCheck.checked = !!task.spacedRevision;
 
   dom.taskModalTitle.textContent = 'Edit Study Task';
   dom.saveTaskBtnText.textContent = 'Update Task';
@@ -1101,6 +1161,7 @@ function handleTaskFormSubmit(e) {
   const duration = parseInt(dom.taskDurationInput.value, 10) || 45;
   const pomodorosEstimated = parseInt(dom.taskPomoEstimate.value, 10) || 1;
   const notes = dom.taskNotesInput.value.trim();
+  const spacedRevision = dom.taskSpacedRevisionCheck ? dom.taskSpacedRevisionCheck.checked : false;
 
   if (!title || !date) {
     showToast('Please provide a title and due date', 'error');
@@ -1112,7 +1173,7 @@ function handleTaskFormSubmit(e) {
     if (taskIndex !== -1) {
       state.tasks[taskIndex] = {
         ...state.tasks[taskIndex],
-        title, subject, priority, date, time, duration, pomodorosEstimated, notes
+        title, subject, priority, date, time, duration, pomodorosEstimated, notes, spacedRevision
       };
       showToast('Study task updated!', 'success');
     }
@@ -1124,6 +1185,7 @@ function handleTaskFormSubmit(e) {
       pomodorosEstimated,
       pomodorosCompleted: 0,
       notes,
+      spacedRevision,
       createdAt: new Date().toISOString()
     };
     state.tasks.unshift(newTask);
@@ -1146,6 +1208,9 @@ function toggleTaskComplete(taskId) {
   if (task.completed) {
     addXP(20, 'Task Completed');
     triggerConfetti();
+    if (task.spacedRevision && !task.spacedScheduled) {
+      scheduleSpacedRevisionTasks(task);
+    }
   } else {
     showToast(`Marked as pending: "${task.title}"`, 'info');
   }
@@ -1249,6 +1314,7 @@ function renderAll() {
     case 'quickNotes': loadNotesLocal(); break;
     case 'analytics': renderAnalyticsView(); break;
     case 'aiPredictor': renderAiPredictorView(); break;
+    case 'spacedRevision': renderSpacedRevisionView(); break;
   }
 }
 
@@ -1260,6 +1326,7 @@ function renderCounters() {
   if (dom.navAllCount) dom.navAllCount.textContent = total;
   if (dom.navTodayCount) dom.navTodayCount.textContent = todayTasks.length;
   if (dom.sidebarExamBadge) dom.sidebarExamBadge.textContent = `${state.exams.length} Exams`;
+  updateSpacedRevisionCounters();
 }
 
 function renderStats() {
@@ -2864,7 +2931,10 @@ window.studyFlow = {
     }
     renderDashboardTaskList();
     renderFilterChips();
-  }
+  },
+  deleteFlashcard: (cardId) => deleteFlashcard(cardId),
+  openSyllabusSplitter: () => openSyllabusSplitterModal(),
+  openNewFlashcard: () => openFlashcardModal()
 };
 
 window.beastMode = window.studyFlow;
@@ -3183,6 +3253,527 @@ function setupBeastProEventListeners() {
       setAmbientAudio(btn.dataset.sound);
     });
   });
+}
+
+/* ==========================================================================
+   SCIENTIFIC SPACED REPETITION (SRS) & ACTIVE RECALL SYSTEM
+   ========================================================================== */
+
+function scheduleSpacedRevisionTasks(task) {
+  const baseDate = new Date();
+  const intervals = [
+    { days: 1, label: 'Review #1 (24-Hour Recall)', prio: 'medium' },
+    { days: 3, label: 'Review #2 (3-Day Retention)', prio: 'medium' },
+    { days: 7, label: 'Review #3 (Weekly Active Recall)', prio: 'high' }
+  ];
+
+  intervals.forEach(int => {
+    const d = new Date(baseDate);
+    d.setDate(d.getDate() + int.days);
+    const dateStr = formatDateISO(d);
+    
+    const revTask = {
+      id: 'srs_' + Date.now() + '_' + Math.floor(Math.random() * 1000),
+      title: `🔁 ${int.label}: ${task.title}`,
+      subject: task.subject || 'General',
+      priority: int.prio,
+      date: dateStr,
+      time: task.time || '10:00',
+      duration: 20,
+      pomodorosEstimated: 1,
+      pomodorosCompleted: 0,
+      completed: false,
+      notes: `Active recall revision session for: ${task.title}. Review formulas & solve 2 practice problems.`,
+      isSpacedReview: true,
+      createdAt: new Date().toISOString()
+    };
+    state.tasks.unshift(revTask);
+  });
+
+  task.spacedScheduled = true;
+  saveTasks();
+  renderCounters();
+  showToast('🔁 Scientific Spaced Revision scheduled on Day 1, 3 & 7!', 'success');
+}
+
+function getStarterFlashcards() {
+  const today = formatDateISO(new Date());
+  return [
+    {
+      id: 'fc_1',
+      subject: 'Mathematics',
+      front: 'Integration by Parts Formula',
+      back: '∫ u · v\' dx = u · v - ∫ u\' · v dx\n\nRule of thumb: Choose u using ILATE order (Inverse, Log, Algebraic, Trig, Exponential).',
+      interval: 1,
+      repetitions: 0,
+      nextReview: today,
+      mastered: false
+    },
+    {
+      id: 'fc_2',
+      subject: 'Physics',
+      front: "Faraday's Law of Electromagnetic Induction",
+      back: 'Induced EMF = - dΦ/dt\n\nNegative sign represents Lenz\'s Law: induced current opposes the change in magnetic flux producing it.',
+      interval: 1,
+      repetitions: 0,
+      nextReview: today,
+      mastered: false
+    },
+    {
+      id: 'fc_3',
+      subject: 'Chemistry',
+      front: "Markovnikov's Rule (Organic Addition)",
+      back: 'In electrophilic addition to unsymmetrical alkene, the hydrogen attaches to the carbon with more hydrogen atoms ("the rich get richer").',
+      interval: 1,
+      repetitions: 0,
+      nextReview: today,
+      mastered: false
+    },
+    {
+      id: 'fc_4',
+      subject: 'Computer Science',
+      front: 'Binary Search Algorithm Complexity',
+      back: 'Time Complexity: O(log N)\nSpace Complexity: O(1) iterative\n\nPrerequisite: Array must be sorted in ascending or descending order.',
+      interval: 1,
+      repetitions: 0,
+      nextReview: today,
+      mastered: false
+    }
+  ];
+}
+
+function loadFlashcardsLocal() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEYS.FLASHCARDS);
+    if (raw) {
+      state.flashcards = JSON.parse(raw);
+    } else {
+      state.flashcards = getStarterFlashcards();
+      saveFlashcardsLocal();
+    }
+  } catch (e) {
+    state.flashcards = getStarterFlashcards();
+  }
+}
+
+function saveFlashcardsLocal() {
+  try {
+    localStorage.setItem(STORAGE_KEYS.FLASHCARDS, JSON.stringify(state.flashcards));
+    updateSpacedRevisionCounters();
+  } catch (e) {}
+}
+
+function updateSpacedRevisionCounters() {
+  const today = formatDateISO(new Date());
+  const dueCards = state.flashcards.filter(c => !c.nextReview || c.nextReview <= today);
+  const masteredCards = state.flashcards.filter(c => c.mastered);
+
+  if (dom.navSpacedDueCount) dom.navSpacedDueCount.textContent = `${dueCards.length} Due`;
+  if (dom.spacedDueCountText) dom.spacedDueCountText.textContent = `${dueCards.length} Cards Due for Review Today`;
+  if (dom.spacedMasteredCount) dom.spacedMasteredCount.textContent = masteredCards.length;
+  if (dom.spacedTotalCount) dom.spacedTotalCount.textContent = state.flashcards.length;
+}
+
+function renderSpacedRevisionView() {
+  updateSpacedRevisionCounters();
+  renderActiveFlashcard();
+  renderFlashcardMiniGrid();
+}
+
+function getDueFlashcards() {
+  const today = formatDateISO(new Date());
+  const due = state.flashcards.filter(c => !c.nextReview || c.nextReview <= today);
+  return due.length > 0 ? due : state.flashcards;
+}
+
+function renderActiveFlashcard() {
+  const deck = getDueFlashcards();
+  if (deck.length === 0) {
+    if (dom.currentCardIndicator) dom.currentCardIndicator.textContent = 'Deck Empty';
+    if (dom.activeCardSubject) dom.activeCardSubject.textContent = 'Empty';
+    if (dom.activeCardFront) dom.activeCardFront.textContent = 'No flashcards available. Click "+ Add Flashcard" above!';
+    if (dom.activeCardBack) dom.activeCardBack.textContent = 'Create your first card to begin active recall practice.';
+    return;
+  }
+
+  if (state.currentFlashcardIndex >= deck.length) {
+    state.currentFlashcardIndex = 0;
+  }
+
+  const card = deck[state.currentFlashcardIndex];
+  if (dom.activeStudyFlashcard) dom.activeStudyFlashcard.classList.remove('flipped');
+  if (dom.currentCardIndicator) dom.currentCardIndicator.textContent = `Card ${state.currentFlashcardIndex + 1} of ${deck.length}`;
+  if (dom.activeCardSubject) dom.activeCardSubject.textContent = card.subject || 'General';
+  if (dom.activeCardFront) dom.activeCardFront.textContent = card.front;
+  if (dom.activeCardBack) dom.activeCardBack.textContent = card.back;
+}
+
+function flipActiveFlashcard() {
+  if (dom.activeStudyFlashcard) {
+    dom.activeStudyFlashcard.classList.toggle('flipped');
+  }
+}
+
+function rateActiveFlashcard(rating) {
+  const deck = getDueFlashcards();
+  if (deck.length === 0) return;
+
+  const card = deck[state.currentFlashcardIndex];
+  if (!card) return;
+
+  const today = new Date();
+
+  if (rating === 'hard') {
+    card.interval = 1;
+    card.repetitions = 0;
+    card.mastered = false;
+    showToast('Scheduled for tomorrow (+1d)', 'info');
+  } else if (rating === 'good') {
+    card.interval = Math.max(3, Math.round((card.interval || 1) * 2));
+    card.repetitions = (card.repetitions || 0) + 1;
+    if (card.repetitions >= 3) card.mastered = true;
+    showToast(`Good recall! Next review in ${card.interval} days 🎯`, 'success');
+  } else if (rating === 'easy') {
+    card.interval = Math.max(14, Math.round((card.interval || 1) * 3));
+    card.repetitions = (card.repetitions || 0) + 2;
+    card.mastered = true;
+    triggerConfetti();
+    playSynthChime('complete');
+    showToast(`Mastered! Next review in ${card.interval} days 🔥`, 'success');
+  }
+
+  const nextD = new Date(today);
+  nextD.setDate(nextD.getDate() + card.interval);
+  card.nextReview = formatDateISO(nextD);
+
+  addXP(10, 'Active Recall');
+  saveFlashcardsLocal();
+
+  state.currentFlashcardIndex = (state.currentFlashcardIndex + 1) % deck.length;
+  renderActiveFlashcard();
+  renderFlashcardMiniGrid();
+}
+
+function renderFlashcardMiniGrid() {
+  if (!dom.flashcardMiniGrid) return;
+  const filter = dom.flashcardSubjectFilter ? dom.flashcardSubjectFilter.value : 'all';
+  let cards = state.flashcards;
+  if (filter !== 'all') {
+    cards = cards.filter(c => c.subject === filter);
+  }
+
+  // Populate subject filter options if needed
+  if (dom.flashcardSubjectFilter) {
+    const subjects = Array.from(new Set(state.flashcards.map(c => c.subject || 'General')));
+    const currentVal = dom.flashcardSubjectFilter.value;
+    dom.flashcardSubjectFilter.innerHTML = '<option value="all">All Subjects</option>' +
+      subjects.map(s => `<option value="${escapeHTML(s)}" ${s === currentVal ? 'selected' : ''}>${escapeHTML(s)}</option>`).join('');
+  }
+
+  if (cards.length === 0) {
+    dom.flashcardMiniGrid.innerHTML = `
+      <div style="grid-column: 1/-1; text-align: center; padding: 24px; color: var(--text-muted);">
+        No flashcards found. Create your first card above!
+      </div>
+    `;
+    return;
+  }
+
+  const today = formatDateISO(new Date());
+  dom.flashcardMiniGrid.innerHTML = cards.map(c => {
+    const isDue = !c.nextReview || c.nextReview <= today;
+    return `
+      <div class="flashcard-mini-card">
+        <div style="display: flex; align-items: center; justify-content: space-between;">
+          <span class="card-subject-tag">${escapeHTML(c.subject || 'General')}</span>
+          <span style="font-size: 0.72rem; font-weight: 800; color: ${isDue ? '#ef4444' : '#10b981'};">
+            ${isDue ? '⚡ Due Today' : `In ${c.interval || 1}d`}
+          </span>
+        </div>
+        <div class="mini-card-front">${escapeHTML(c.front)}</div>
+        <div class="mini-card-back" style="white-space: pre-wrap;">${escapeHTML(c.back)}</div>
+        <div class="mini-card-footer">
+          <span>${c.mastered ? '🏆 Mastered' : '🔄 Learning'}</span>
+          <button class="btn-ghost-sm text-danger" style="padding: 2px 6px; font-size: 0.7rem;" onclick="window.studyFlow.deleteFlashcard('${c.id}')">Delete</button>
+        </div>
+      </div>
+    `;
+  }).join('');
+}
+
+function openFlashcardModal() {
+  if (dom.flashcardForm) dom.flashcardForm.reset();
+  if (dom.flashcardModal) {
+    if (dom.flashcardModal.showModal) dom.flashcardModal.showModal();
+    else dom.flashcardModal.classList.remove('hidden');
+    setTimeout(() => dom.fcSubjectInput && dom.fcSubjectInput.focus(), 50);
+  }
+}
+
+function closeFlashcardModal() {
+  if (dom.flashcardModal) {
+    if (dom.flashcardModal.close) dom.flashcardModal.close();
+    else dom.flashcardModal.classList.add('hidden');
+  }
+}
+
+function handleFlashcardFormSubmit(e) {
+  e.preventDefault();
+  const subject = dom.fcSubjectInput.value.trim() || 'General';
+  const front = dom.fcFrontInput.value.trim();
+  const back = dom.fcBackInput.value.trim();
+
+  if (!front || !back) {
+    showToast('Please provide both question and answer', 'error');
+    return;
+  }
+
+  const today = formatDateISO(new Date());
+  const newCard = {
+    id: 'fc_' + Date.now(),
+    subject,
+    front,
+    back,
+    interval: 1,
+    repetitions: 0,
+    nextReview: today,
+    mastered: false
+  };
+
+  state.flashcards.unshift(newCard);
+  saveFlashcardsLocal();
+  closeFlashcardModal();
+  renderSpacedRevisionView();
+  addXP(15, 'Created Flashcard');
+  showToast('Flashcard added to deck! 🧠', 'success');
+}
+
+function deleteFlashcard(cardId) {
+  const idx = state.flashcards.findIndex(c => c.id === cardId);
+  if (idx === -1) return;
+  state.flashcards.splice(idx, 1);
+  saveFlashcardsLocal();
+  renderSpacedRevisionView();
+  showToast('Flashcard removed from deck', 'info');
+}
+
+// ==========================================
+// SYLLABUS SPLITTER (AUTO-SCHEDULE GENERATOR)
+// ==========================================
+function openSyllabusSplitterModal() {
+  if (dom.syllabusSplitterForm) dom.syllabusSplitterForm.reset();
+  if (dom.splitterPreviewWrap) dom.splitterPreviewWrap.classList.add('hidden');
+  if (dom.confirmImportScheduleBtn) dom.confirmImportScheduleBtn.classList.add('hidden');
+
+  // Default target date: 21 days from today
+  const defaultDate = new Date();
+  defaultDate.setDate(defaultDate.getDate() + 21);
+  if (dom.splitterTargetDateInput) dom.splitterTargetDateInput.value = formatDateISO(defaultDate);
+
+  if (dom.syllabusSplitterModal) {
+    if (dom.syllabusSplitterModal.showModal) dom.syllabusSplitterModal.showModal();
+    else dom.syllabusSplitterModal.classList.remove('hidden');
+    setTimeout(() => dom.splitterSubjectInput && dom.splitterSubjectInput.focus(), 50);
+  }
+}
+
+function closeSyllabusSplitterModal() {
+  if (dom.syllabusSplitterModal) {
+    if (dom.syllabusSplitterModal.close) dom.syllabusSplitterModal.close();
+    else dom.syllabusSplitterModal.classList.add('hidden');
+  }
+}
+
+function generateSyllabusSchedule() {
+  const subject = dom.splitterSubjectInput.value.trim() || 'General';
+  const targetDateStr = dom.splitterTargetDateInput.value;
+  const rawChapters = dom.splitterChaptersInput.value.trim();
+  const dailyPomo = parseInt(dom.splitterDailyPomoInput.value, 10) || 3;
+  const priority = dom.splitterPriorityInput.value || 'high';
+  const hasBuffer = dom.splitterBufferCheck ? dom.splitterBufferCheck.checked : true;
+
+  if (!rawChapters || !targetDateStr) {
+    showToast('Please fill in syllabus topics and target date', 'error');
+    return;
+  }
+
+  // Parse chapters
+  let chapters = [];
+  const lines = rawChapters.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+  if (lines.length === 1 && !isNaN(lines[0])) {
+    const count = parseInt(lines[0], 10);
+    for (let i = 1; i <= Math.min(50, count); i++) {
+      chapters.push(`Chapter ${i}`);
+    }
+  } else {
+    chapters = lines;
+  }
+
+  if (chapters.length === 0) {
+    showToast('Please enter at least one chapter', 'error');
+    return;
+  }
+
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const targetDate = new Date(targetDateStr + 'T00:00:00');
+  const diffDays = Math.round((targetDate - today) / (1000 * 60 * 60 * 24));
+
+  if (diffDays <= 0) {
+    showToast('Target date must be at least tomorrow!', 'error');
+    return;
+  }
+
+  // Calculate buffer days
+  const bufferDays = hasBuffer ? Math.max(1, Math.min(5, Math.floor(diffDays * 0.2))) : 0;
+  const studyDays = Math.max(1, diffDays - bufferDays);
+
+  const generatedTasks = [];
+
+  // Spread chapters across study days
+  chapters.forEach((chap, idx) => {
+    const dayOffset = Math.min(studyDays - 1, Math.floor((idx / chapters.length) * studyDays));
+    const taskDate = new Date(today);
+    taskDate.setDate(taskDate.getDate() + dayOffset);
+    const dateStr = formatDateISO(taskDate);
+
+    // Theory task
+    generatedTasks.push({
+      id: 'split_' + Date.now() + '_' + idx + '_1',
+      title: `📖 ${subject}: ${chap} (Theory & Concepts)`,
+      subject,
+      priority,
+      date: dateStr,
+      time: '09:00',
+      duration: 60,
+      pomodorosEstimated: dailyPomo,
+      pomodorosCompleted: 0,
+      completed: false,
+      spacedRevision: true,
+      notes: `Focus on mastering key formulas, derivations, and concept diagrams for ${chap}.`,
+      createdAt: new Date().toISOString()
+    });
+
+    // Practice task
+    generatedTasks.push({
+      id: 'split_' + Date.now() + '_' + idx + '_2',
+      title: `📝 ${subject}: ${chap} (PYQ & Numerical Drill)`,
+      subject,
+      priority: priority === 'high' ? 'medium' : 'low',
+      date: dateStr,
+      time: '14:30',
+      duration: 45,
+      pomodorosEstimated: Math.max(1, dailyPomo - 1),
+      pomodorosCompleted: 0,
+      completed: false,
+      notes: `Solve past exam questions (PYQs) and sample problems for ${chap}.`,
+      createdAt: new Date().toISOString()
+    });
+  });
+
+  // Add buffer mock test tasks
+  if (bufferDays > 0) {
+    for (let b = 1; b <= bufferDays; b++) {
+      const bufferDate = new Date(targetDate);
+      bufferDate.setDate(bufferDate.getDate() - (bufferDays - b));
+      const dateStr = formatDateISO(bufferDate);
+
+      if (b === bufferDays) {
+        generatedTasks.push({
+          id: 'split_buf_' + Date.now() + '_' + b,
+          title: `🎯 ${subject}: Full Mock Test & Time-management Sprint`,
+          subject,
+          priority: 'high',
+          date: dateStr,
+          time: '10:00',
+          duration: 120,
+          pomodorosEstimated: 4,
+          pomodorosCompleted: 0,
+          completed: false,
+          notes: `Timed test under strictly exam-simulated conditions without referring to book notes.`,
+          createdAt: new Date().toISOString()
+        });
+      } else {
+        generatedTasks.push({
+          id: 'split_buf_' + Date.now() + '_' + b,
+          title: `⚡ ${subject}: Error Log & Formula Sheet Speed Revision`,
+          subject,
+          priority: 'high',
+          date: dateStr,
+          time: '11:00',
+          duration: 60,
+          pomodorosEstimated: 2,
+          pomodorosCompleted: 0,
+          completed: false,
+          notes: `Review error journal, tricky formulas, and frequently mistaken concepts.`,
+          createdAt: new Date().toISOString()
+        });
+      }
+    }
+  }
+
+  // Sort generated tasks by date
+  generatedTasks.sort((a, b) => a.date.localeCompare(b.date) || a.time.localeCompare(b.time));
+  state.generatedSplitterTasks = generatedTasks;
+
+  // Render preview
+  if (dom.splitterPreviewTableBox) {
+    dom.splitterPreviewTableBox.innerHTML = generatedTasks.map(t => `
+      <div class="splitter-preview-item">
+        <span class="task-prev-date">${formatHumanDate(t.date)}</span>
+        <span class="task-prev-title">${escapeHTML(t.title)}</span>
+        <span class="task-prev-type" style="background: ${t.priority === 'high' ? 'rgba(239,68,68,0.15)' : 'rgba(245,158,11,0.15)'}; color: ${t.priority === 'high' ? '#ef4444' : '#f59e0b'};">
+          ${t.pomodorosEstimated} Pomo
+        </span>
+      </div>
+    `).join('');
+  }
+
+  if (dom.splitterTotalTasksBadge) {
+    dom.splitterTotalTasksBadge.textContent = `${generatedTasks.length} Tasks Generated (${chapters.length} Chapters + ${bufferDays} Buffer Days)`;
+  }
+
+  if (dom.splitterPreviewWrap) dom.splitterPreviewWrap.classList.remove('hidden');
+  if (dom.confirmImportScheduleBtn) dom.confirmImportScheduleBtn.classList.remove('hidden');
+  showToast(`⚡ Calculated balanced schedule for ${chapters.length} chapters!`, 'info');
+}
+
+function importGeneratedSchedule() {
+  if (!state.generatedSplitterTasks || state.generatedSplitterTasks.length === 0) return;
+
+  state.tasks = [...state.generatedSplitterTasks, ...state.tasks];
+  saveTasks();
+  renderAll();
+
+  addXP(100, 'Master Planner Syllabus Split');
+  playSynthChime('levelup');
+  triggerConfetti();
+
+  closeSyllabusSplitterModal();
+  switchView('weekly');
+  showToast(`🚀 ${state.generatedSplitterTasks.length} study tasks imported to your schedule! (+100 XP)`, 'success');
+  state.generatedSplitterTasks = [];
+}
+
+function setupSyllabusAndSpacedEventListeners() {
+  // Splitter Modal triggers
+  if (dom.sidebarSplitterBtn) dom.sidebarSplitterBtn.addEventListener('click', openSyllabusSplitterModal);
+  if (dom.closeSyllabusModalBtn) dom.closeSyllabusModalBtn.addEventListener('click', closeSyllabusSplitterModal);
+  if (dom.cancelSyllabusModalBtn) dom.cancelSyllabusModalBtn.addEventListener('click', closeSyllabusSplitterModal);
+  if (dom.generateSplitterPreviewBtn) dom.generateSplitterPreviewBtn.addEventListener('click', generateSyllabusSchedule);
+  if (dom.confirmImportScheduleBtn) dom.confirmImportScheduleBtn.addEventListener('click', importGeneratedSchedule);
+
+  // Flashcards triggers
+  if (dom.activeStudyFlashcard) dom.activeStudyFlashcard.addEventListener('click', flipActiveFlashcard);
+  if (dom.srsRatingHardBtn) dom.srsRatingHardBtn.addEventListener('click', () => rateActiveFlashcard('hard'));
+  if (dom.srsRatingGoodBtn) dom.srsRatingGoodBtn.addEventListener('click', () => rateActiveFlashcard('good'));
+  if (dom.srsRatingEasyBtn) dom.srsRatingEasyBtn.addEventListener('click', () => rateActiveFlashcard('easy'));
+
+  if (dom.openNewFlashcardModalBtn) dom.openNewFlashcardModalBtn.addEventListener('click', openFlashcardModal);
+  if (dom.closeFlashcardModalBtn) dom.closeFlashcardModalBtn.addEventListener('click', closeFlashcardModal);
+  if (dom.cancelFlashcardModalBtn) dom.cancelFlashcardModalBtn.addEventListener('click', closeFlashcardModal);
+  if (dom.flashcardForm) dom.flashcardForm.addEventListener('submit', handleFlashcardFormSubmit);
+  if (dom.flashcardSubjectFilter) dom.flashcardSubjectFilter.addEventListener('change', renderFlashcardMiniGrid);
 }
 
 document.addEventListener('DOMContentLoaded', init);
